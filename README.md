@@ -35,6 +35,7 @@ Cash/Check Insert and Dispenser
  Receipt Print | Keypad
 
 ATM
+
 ATM 별 고유 ID(6자리)
 거래 (입금, 출금, 이체 등) 별 고유 ID
 다중 은행 ATM
@@ -46,6 +47,7 @@ check (KRW 100,000~) 이렇게만 처리 가능
 Welcome | Cash/Check Insert and Dispenser | Card Insert | Receipt Print | Keypad 출력
 
 Card Insert
+
 콘솔에 card 번호 입력 = card 넣는 거
 단일 ATM인 경우 card 유형 맞는지
 admin card일때 “Transaction history”에 access 가능해야함
@@ -59,6 +61,7 @@ txt  파일로 아웃풋 나오도록
 3회 이상 틀리면 종료, 카드 반환
 
 Cash/Check Insert and Dispense
+
 cancel / 현금 부족 시 종료
 각 atm은 여러 종류의 transaction fees 가짐 ( Deposit fee, Withdrawal fee,
 Account transfer fee ,Cash transfer fee - non/primary 각각 값이 다름)
@@ -72,6 +75,7 @@ Account transfer fee between non-primary banks: KRW 4,000; the fee is paid from 
 Cash transfer fee to any bank type: KRW 1,000; the fee is paid by inserting additional cash.  
 	
 Deposit
+
 cash, check 슬롯 통해 user로부터 입금
 한 거래 당 cash 50장, check 30장까지
 넘기면 error
@@ -105,6 +109,7 @@ ATM의 cash 감소
 
 
 BANK
+
 새로운 계좌 개설, 새로운 사용자 이름, 계좌 번호, 초기 잔액 설정 이를 계좌 목록에 추가
 은행 이름 return 
 잔액 return 
@@ -120,6 +125,7 @@ password 체크 T/F
 개별 계좌별 거래내역
 
 예외처리
+
 ATM 사용 중 현금 부족
 ATM내 현금 부족
 패스워드 오류
