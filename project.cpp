@@ -8,6 +8,7 @@ private:
 public:
     Bank(/* args */);
     ~Bank();
+
 };
 
 Bank::Bank(/* args */)
