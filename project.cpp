@@ -1,6 +1,5 @@
 #include <iostream>
 #include <string>
-#include <limits> // for numeric_limits
 using namespace std;
 
 class Account {
@@ -31,123 +30,147 @@ public:
 };
 
 class Interface {
+private:
+    bool isEng;
+
 public:
+    Interface(bool lang = true) : isEng(lang) {}
+
+    void setLanguage(bool lang) {
+        isEng = lang;
+    }
+
+    bool getLanguage() const {
+        return isEng;
+    }
+
     void showDepositOptions() const {
-        cout << "=== Deposit Menu ===" << endl;
-        cout << "1. 현금 예금" << endl;
-        cout << "2. 수표 예금" << endl;
-        cout << "3. 거래 취소" << endl;
-        cout << "Please select an option: ";
+        if (isEng) {
+            cout << "=== Deposit Menu ===" << endl;
+            cout << "1. Cash Deposit" << endl;
+            cout << "2. Check Deposit" << endl;
+            cout << "3. Cancel Transaction" << endl;
+            cout << "Please select an option: ";
+        }
+        else {
+            cout << "=== 입금 메뉴 ===" << endl;
+            cout << "1. 현금 입금" << endl;
+            cout << "2. 수표 입금" << endl;
+            cout << "3. 거래 취소" << endl;
+            cout << "옵션을 선택하세요: ";
+        }
     }
 
     void showErrorMessage() const {
-        cout << "잘못된 입력입니다. 다시 선택해주세요." << endl;
+        cout << (isEng ? "Invalid input. Please try again." : "잘못된 입력입니다. 다시 시도해주세요.") << endl;
+    }
+
+    void showWelcomeMessage() const {
+        if (isEng) {
+            cout << "Welcome! Please select a menu option." << endl;
+            cout << "1. Deposit\n2. Withdraw\n3. Transfer\n";
+        }
+        else {
+            cout << "안녕하세요! 메뉴를 선택해주세요." << endl;
+            cout << "1. 입금\n2. 출금\n3. 송금\n";
+        }
+    }
+
+    void requestFeePayment(int fee) const {
+        cout << (isEng ? "A fee of " : "수수료: ") << fee
+            << (isEng ? " has been charged. Please insert the fee: " : "원이 부과되었습니다. 수수료를 투입하세요: ");
+    }
+
+    void transactionCancelled() const {
+        cout << (isEng ? "Transaction cancelled. Returning to the main menu." : "거래가 취소되었습니다. 메인 메뉴로 돌아갑니다.") << endl;
+    }
+
+    void showDepositAmount(int amount) const {
+        cout << (isEng ? "Total deposit amount is " : "총 입금 금액은 ") << amount << (isEng ? " units." : "원입니다.") << endl;
+    }
+
+    void displayBalance(int balance) const {
+        cout << (isEng ? "Current balance: " : "현재 잔액: ") << balance << (isEng ? " units." : "원.") << endl;
+    }
+
+    void promptForCheckDeposit() const {
+        cout << (isEng ? "Please insert the check (minimum 100,000) or enter '0' to cancel: " : "수표를 넣어주세요 (최소 100,000원) 또는 '0'을 입력하여 취소하세요: ");
     }
 };
 
 class ATM {
 private:
-    string atmBank; // ATM 소속 은행
-    Account* account; // 사용자의 계좌
-    Bank* bank; // ATM이 속한 은행
-    Interface ui;
+    string atmBank;
+    Account* account;
+    Bank* bank;
+    Interface* ui;
 
 public:
-    ATM(Bank* atmBank, Account* userAccount) : bank(atmBank), account(userAccount), atmBank(atmBank->bankName) {}
+    ATM(Bank* atmBank, Account* userAccount, Interface* interface)
+        : bank(atmBank), account(userAccount), atmBank(atmBank->bankName), ui(interface) {}
 
-    void deposit() {
+    bool deposit() {
         int input;
-        string cardBank = account->accountNumber.substr(0, 4); // 카드 은행 구분을 위한 예시
+        string cardBank = account->accountNumber.substr(0, 4);
 
-        while (true) {  // 초기화면처럼 반복하여 메뉴를 보여줌
-            ui.showDepositOptions();
+        while (true) {
+            ui->showDepositOptions();
             cin >> input;
-
-            if (cin.fail()) { // 숫자가 아닌 입력 처리
-                cin.clear(); // cin 플래그 초기화
-                cin.ignore(numeric_limits<streamsize>::max(), '\n'); // 잘못된 입력 버리기
-                ui.showErrorMessage();
-                continue;
-            }
 
             if (input == 1) { // 현금 예금
                 int m1, m2, m3, m4, depositAmount;
-                cout << "1,000원 투입 개수: ";
+                cout << (ui->getLanguage() ? "Number of 1,000 bills: " : "1,000원 투입 개수: ");
                 cin >> m1;
-                cout << "5,000원 투입 개수: ";
+                cout << (ui->getLanguage() ? "Number of 5,000 bills: " : "5,000원 투입 개수: ");
                 cin >> m2;
-                cout << "10,000원 투입 개수: ";
+                cout << (ui->getLanguage() ? "Number of 10,000 bills: " : "10,000원 투입 개수: ");
                 cin >> m3;
-                cout << "50,000원 투입 개수: ";
+                cout << (ui->getLanguage() ? "Number of 50,000 bills: " : "50,000원 투입 개수: ");
                 cin >> m4;
 
                 depositAmount = m1 * 1000 + m2 * 5000 + m3 * 10000 + m4 * 50000;
 
                 if ((m1 + m2 + m3 + m4) > 50) {
-                    cout << "현금 투입 최대 장수를 초과했습니다. 투입된 현금이 반환됩니다." << endl;
-                    cout << "반환된 현금은 " << depositAmount << "원 입니다." << endl;
+                    cout << (ui->getLanguage() ? "Exceeded maximum number of bills. Returning cash." : "현금 투입 최대 장수를 초과했습니다. 투입된 현금을 반환합니다.") << endl;
+                    ui->showDepositAmount(depositAmount);
                     continue;
                 }
+
                 if ((m1 + m2 + m3 + m4) <= 0) {
-                    cout << "오류. 초기화면으로 돌아갑니다." << endl;
-                    continue;
+                    ui->transactionCancelled();
+                    return false;
                 }
-                cout << "총 금액은 " << depositAmount << "원입니다." << endl;
 
-                int input1;
-                cout << "1. 금액 입력 완료" << endl << "2. 수표 예금" << endl << "3. 거래 취소" << endl;
-                cin >> input1;
-
-                if (input1 == 1) {
-                    processTransaction(depositAmount, cardBank);
-                }
-                else if (input1 == 2) {
-                    continue; // 수표 예금 메뉴로 돌아가기
-                }
-                else if (input1 == 3) {
-                    cout << "거래 취소. 초기 화면으로 돌아갑니다." << endl;
-                    break;
-                }
-                else {
-                    ui.showErrorMessage();
-                }
+                ui->showDepositAmount(depositAmount);
+                processTransaction(depositAmount, cardBank);
+                return true;
             }
             else if (input == 2) { // 수표 예금
                 int checkAmount;
-                do {
-                    cout << "수표를 투입하십쇼 (100,000원 이상): ";
+                while (true) {
+                    ui->promptForCheckDeposit();
                     cin >> checkAmount;
-                    if (checkAmount < 100000) {
-                        cout << "수표 예금은 100,000원 이상만 가능합니다. 다시 입력해주세요." << endl;
+                    if (checkAmount == 0) {
+                        ui->transactionCancelled();
+                        return false;
                     }
-                } while (checkAmount < 100000);
-
-                cout << "수표 입금이 완료되었습니다. 최종 입금 금액은 " << checkAmount << "원입니다." << endl;
-
-                int input2;
-                cout << "1. 금액 입력 완료" << endl << "2. 현금 예금" << endl << "3. 거래 취소" << endl;
-                cin >> input2;
-
-                if (input2 == 1) {
-                    processTransaction(checkAmount, cardBank);
+                    if (checkAmount < 100000) {
+                        cout << (ui->getLanguage() ? "Check deposit requires at least 100,000. Please try again." : "수표 예금은 최소 100,000원 이상만 가능합니다. 다시 시도해주세요.") << endl;
+                    }
+                    else {
+                        break;
+                    }
                 }
-                else if (input2 == 2) {
-                    continue; // 현금 예금 메뉴로 돌아가기
-                }
-                else if (input2 == 3) {
-                    cout << "거래 취소. 초기 화면으로 돌아갑니다." << endl;
-                    break;
-                }
-                else {
-                    ui.showErrorMessage();
-                }
+                ui->showDepositAmount(checkAmount);
+                processTransaction(checkAmount, cardBank);
+                return true;
             }
             else if (input == 3) { // 거래 취소
-                cout << "거래 취소. 초기 화면으로 돌아갑니다." << endl;
-                break;
+                ui->transactionCancelled();
+                return false;
             }
             else {
-                ui.showErrorMessage();
+                ui->showErrorMessage();
             }
         }
     }
@@ -156,36 +179,54 @@ public:
         int fee = bank->calculateFee(cardBank);
         int insertedFee;
 
-        cout << "수수료 " << fee << "원이 부과됩니다. 수수료를 투입해주세요: ";
+        ui->requestFeePayment(fee);
         cin >> insertedFee;
-
-        if (cin.fail()) { // 수수료에 숫자가 아닌 값 입력 시 처리
-            cin.clear();
-            cin.ignore(numeric_limits<streamsize>::max(), '\n');
-            cout << "잘못된 수수료 입력입니다. 거래가 취소됩니다." << endl;
-            return;
-        }
 
         if (insertedFee >= fee) {
             account->deposit(depositAmount);
-            cout << "입금이 완료되었습니다. 최종 입금 금액은 " << depositAmount << "원입니다." << endl;
-            cout << "현재 잔액: " << account->getBalance() << "원" << endl;
+            ui->showDepositAmount(depositAmount);
+            ui->displayBalance(account->getBalance());
 
             if (insertedFee > fee) {
-                cout << "거스름돈 " << insertedFee - fee << "원을 받아주세요." << endl;
+                cout << (ui->getLanguage() ? "Change: " : "거스름돈: ") << insertedFee - fee << (ui->getLanguage() ? " units." : "원.") << endl;
             }
         }
         else {
-            cout << "수수료가 부족하여 거래를 진행할 수 없습니다. 초기화면으로 돌아갑니다." << endl;
+            cout << (ui->getLanguage() ? "Insufficient fee payment. Returning to the main menu." : "수수료가 부족하여 거래를 진행할 수 없습니다. 메인 메뉴로 돌아갑니다.") << endl;
         }
     }
 };
 
 int main() {
-    Bank myBank("shinhan");                  // 은행 객체 생성
-    Account userAccount("kakao1234", 5000); // 계좌 객체 생성 (초기 잔액 5000원)
-    ATM atm(&myBank, &userAccount);         // ATM 객체 생성
+    Bank myBank("kakao");
+    Account userAccount("kakao1234", 5000);
+    Interface ui;
+    ATM atm(&myBank, &userAccount, &ui);
 
-    atm.deposit(); // 입금 기능 테스트
+    cout << "1. English" << endl << "2. 한국어" << endl;
+    int n;
+    cin >> n;
+    if (n == 1) {
+        ui.setLanguage(true);
+    }
+    else {
+        ui.setLanguage(false);
+    }
+
+    while (true) {
+        ui.showWelcomeMessage();
+
+        int selection;
+        cin >> selection;
+
+        if (selection == 1) {
+            bool success = atm.deposit();
+            if (!success) continue; // Welcome 화면으로 돌아가기
+        }
+        else {
+            cout << (ui.getLanguage() ? "Option not yet implemented." : "아직 구현되지 않은 옵션입니다.") << endl;
+        }
+    }
+
     return 0;
 }
