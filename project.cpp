@@ -320,7 +320,7 @@ public:
             account->decrease_account_balance(withdrawAmount);
             withdrawalCount++;
 
-            // 출금 횟수 초과 검사 및 후속 작업
+            // 출금 횟수 초과 
             cout << (ui->getLanguage() ? "Withdrawal Successful!" : "출금 성공!") << endl;
             cout << (ui->getLanguage() ? "Current Balance: " : "현재 잔액: ") << account->getAvailableFund() << "won\n";
 
