@@ -39,6 +39,9 @@ private:
     int num_of_banks = 0;
     int num_of_accounts = 0;
     Account* accounts[100];
+    string history[100];
+    int num_of_transactions = 0;
+
 public:
     Bank(string bankname, string banknumber)
         : bank_name(bankname), bank_number(banknumber)
@@ -70,9 +73,41 @@ public:
         accounts[num_of_accounts++] = new_account;
         return new_account;
     }
-    Bank(string name) : bank_name(name) {}
+    /*Bank(string name) : bank_name(name) {}
     int calculateFee(const string& cardBank) const {
         return (cardBank == bank_name) ? 1000 : 2000;
+    }*/
+
+    int calculateFee(string transaction_type, string cardBank = "", string target_bank = "") {
+        if (transaction_type == "transfer") {
+            if (!cardBank.empty() && !target_bank.empty()) {
+                if (cardBank == bank_name && target_bank == bank_name) {
+                    return 2000;
+                }
+                else if (cardBank != bank_name && target_bank != bank_name) {
+                    return 4000;
+                }
+                else {
+                    return 3000;
+                }
+            }
+            else {
+                return 1000;
+            }
+        }
+        else {
+            return (cardBank == bank_name) ? 1000 : 2000;
+        }
+    }
+
+    void write_history_inventory(string transaction_detail) {
+        history[num_of_transactions++] = transaction_detail;
+    } // 거래 내용을 atm의 메서드 내에서 작성 후 해당 함수 적용
+
+    void display_history() {
+        for (int i = 0; i < num_of_transactions; i++) {
+            cout << history[i] << endl;
+        }
     }
 };
 
@@ -273,7 +308,7 @@ public:
 };
 
 int main() {
-    
+
     Bank myBank("kakao", "111");
     Account* myAccount = myBank.make_account("K", "kakao", 10000, "2345");
     //Account* make_account(string new_owner_name, string bankname, double initial_balance, string password
@@ -307,5 +342,5 @@ int main() {
         }
     }
 
-  /*  return 0;*/
+    /*  return 0;*/
 }
