@@ -2,6 +2,10 @@
 #include <string>
 using namespace std;
 
+class Bank;
+class Account;
+class ATM;
+
 class Account {
 private:
     string account_number;
@@ -10,9 +14,9 @@ private:
     string card_number;
     double available_fund = 0;
     Bank* account_bank;
-    /* data */
+
 public:
-    Account(string account_num, string owner, string card_num, double init_balance, Bank* bank, string pwd) {
+    Account(string account_num, string owner, string card_num, double init_balance, Bank* bank, string pwd) : account_number(account_num), owner_name(owner), card_number(card_num), available_fund(init_balance), account_bank(bank), password(pwd) {
         account_number = account_num;
         owner_name = owner;
         card_num = card_number;
@@ -20,7 +24,9 @@ public:
         account_bank = bank;
         password = pwd;
     }
-    ~Account();
+    ~Account() {
+    
+    };
     bool authorize_user(string input_password) { return password == input_password; }
     double increase_account_balance(double amount) { return available_fund += amount; } //atm 속 돈 양 증가 추가
     double decrease_account_balance(double amount) { return available_fund -= amount; } //atm 속 돈 양 감소 추가
@@ -38,15 +44,17 @@ private:
     int num_of_accounts = 0;
     Account* accounts[100];
 public:
-    Bank(string bankname, string banknumber)
-        : bank_name(bankname), bank_number(banknumber)
+    Bank(string bankname, string banknumber) : bank_name(bankname), bank_number(banknumber)
     {
         string bank_name = bankname;
         string bank_number = banknumber;
         bank_list[num_of_banks++] = this;
     }
-    ~Bank() { delete this; }
-    int fee_calculator_deposit(string input_cardbank); //deposit, transfer, withdraw 각각 설정
+    ~Bank() {
+    };
+    virtual int fee_calculator_deposit(string input_cardbank) {
+        return 0;
+    }; //deposit, transfer, withdraw 각각 설정
     string getBankName() { return bank_name; }
     string getBankNumber() { return bank_number; }
     Account* make_account(string new_owner_name, string bankname, double initial_balance, string password) {
@@ -68,9 +76,16 @@ public:
         accounts[num_of_accounts++] = new_account;
         return new_account;
     }
-    Bank(string name) : bank_name(name) {}
     int calculateFee(const string& cardBank) const {
         return (cardBank == bank_name) ? 1000 : 2000;
+    }
+    bool hasAccount(string accountnumber) {
+        for (int i = 0; i < num_of_accounts; i++) {
+            if (accounts[i]->getAccountNumber() == accountnumber) {
+                return true;
+            }
+        }
+        return false;
     }
 };
 
@@ -156,10 +171,24 @@ private:
     Account* account;
     Bank* bank;
     Interface* ui;
+    int cash[4]{ 100, 100, 100, 100 };
 
 public:
     ATM(Bank* atmBank, Account* userAccount, Interface* interface)
         : bank(atmBank), account(userAccount), atmBank(atmBank->getBankName()), ui(interface) {}
+
+    void put_1000(int num) {
+        cash[0] += num;
+    }
+    void put_5000(int num) {
+        cash[1] += num;
+    }
+    void put_10000(int num) {
+        cash[2] += num;
+    }
+    void put_50000(int num) {
+        cash[3] += num;
+    }
 
     bool deposit() {
         int input;
@@ -233,7 +262,39 @@ public:
             cin >> input;
             if (input == 1) { //현금 이체
                 cout << (ui->getLanguage() ? "Please enter the account to transfer" : "송금할 계좌를 입력해 주세요.") << endl;
+                string account_num;
+                cin >> account_num;
+                if (bank->hasAccount(account_num)) { // 존재하는 계좌인 경우
+                    int transferAmount, m1, m2, m3, m4, deposited;
+                    cout << (ui->getLanguage() ? "How much money do you want to transfer" : "얼만큼의 돈을 이체하시겠습니까?") << endl;
+                    cin >> transferAmount;
+                    cout << (ui->getLanguage() ? "Number of 1,000 bills: " : "1,000원 투입 개수: ");
+                    cin >> m1;
+                    cout << (ui->getLanguage() ? "Number of 5,000 bills: " : "5,000원 투입 개수: ");
+                    cin >> m2;
+                    cout << (ui->getLanguage() ? "Number of 10,000 bills: " : "10,000원 투입 개수: ");
+                    cin >> m3;
+                    cout << (ui->getLanguage() ? "Number of 50,000 bills: " : "50,000원 투입 개수: ");
+                    cin >> m4;
 
+                    deposited = m1 * 1000 + m2 * 5000 + m3 * 10000 + m4 * 50000;
+
+                    if (deposited < transferAmount) { // 부족한 돈을 넣은 경우
+                        cout << (ui->getLanguage() ? "It is not enough money." : "돈이 부족합니다.") << endl;
+                        // welcome으로
+                    }
+                    else if (deposited > transferAmount) { // 초과된 돈을 넣은 경우
+                        cout << deposited - transferAmount << (ui->getLanguage() ? " Change" : " 거스름돈") << endl;
+
+                    }
+                    else { // deposit 성공
+                        // ATM 현금 증가
+                        put_1000(m1);
+                        put_5000(m2);
+                        put_10000(m3);
+                        put_50000(m4);
+                    }
+                }
             }
             else if (input == 2) { //계좌 이체
 
@@ -271,9 +332,9 @@ public:
 };
 
 int main() {
-    Bank myBank("kakao");
+    Bank myBank("kakao", "3333");
     // 이 부분 에러 나는데 왜 그러는지 잘 모르겠어용 ㅠ
-    // Account userAccount("12", "K", "3333111122223333", "10000", myBank, "password");
+    Account userAccount("123444", "K", "3333111122223333", 1111.000 , &myBank, "password");
     Interface ui;
     ATM atm(&myBank, &userAccount, &ui);
 
