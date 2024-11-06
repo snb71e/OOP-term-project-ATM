@@ -99,7 +99,7 @@ public:
     int fee_calculator_deposit(string input_cardbank); //deposit, transfer, withdraw 각각 설정
     string getBankName() { return bank_name; }
     string getBankNumber() { return bank_number; }
-    account* make_account(string new_owner_name, string bankname, double initial_balance, password) {
+    account* make_account(string new_owner_name, string bankname, double initial_balance, string password) {
         string new_bank_number;
         string new_card_number;
         for (int i = 0; i < num_of_banks; i++) {
@@ -140,9 +140,9 @@ public:
         password = pwd;
     }
     ~account();
-    void authorize_user(string input_password) { return password == input_password; }
-    void increase_account_balance(double amount) { return available_fund += amount; } //atm 속 돈 양 증가 추가
-    void decrease_account_balance(double amount) { return available_fund -= amount; } //atm 속 돈 양 감소 추가
+    bool authorize_user(string input_password) { return password == input_password; }
+    double increase_account_balance(double amount) { return available_fund += amount; } //atm 속 돈 양 증가 추가
+    double decrease_account_balance(double amount) { return available_fund -= amount; } //atm 속 돈 양 감소 추가
     string getAccountNumber() { return account_number; }
     string getOwnerName() { return owner_name; };
     double getAvailableFund() { return available_fund; }
