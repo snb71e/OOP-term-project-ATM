@@ -693,10 +693,16 @@ int main() {
             bool success = atm.deposit();
             if (!success) continue; // Welcome 화면으로 돌아가기
         }
+        else if (selection ==  2) {
+            bool success = atm.withdraw();
+            if(!success) continue;
+        }
+        
         else if (selection == 3) {
             bool success = atm.transfer();
             if (!success) continue;
         }
+
         else {
             cout << (ui.getLanguage() ? "Option not yet implemented." : "아직 구현되지 않은 옵션입니다.") << endl;
         }
