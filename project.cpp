@@ -2,7 +2,6 @@
 #include <string>
 using namespace std;
 
-
 class Bank;
 
 class Account {
@@ -43,8 +42,7 @@ private:
     int num_of_banks = 0;
     int num_of_accounts = 0;
     Account* accounts[100];
-    string history[100];
-    int num_of_transactions = 0;
+    //num_of_transactions, history[] 지움
 
 public:
     Bank(string bankname, string banknumber)
@@ -113,15 +111,7 @@ public:
         }
     }
 
-    void write_history_inventory(string transaction_detail) {
-        history[num_of_transactions++] = transaction_detail;
-    } // 거래 내용을 atm의 메서드 내에서 작성 후 해당 함수 적용
-
-    void display_history() {
-        for (int i = 0; i < num_of_transactions; i++) {
-            cout << history[i] << endl;
-        }
-    }
+    ///////write_history, display_history 지움   
     bool hasAccount(string accountnumber) {
         for (int i = 0; i < num_of_accounts; i++) {
             if (accounts[i]->getAccountNumber() == accountnumber) {
@@ -229,6 +219,44 @@ public:
     }
 };
 
+//////record 함수 추가
+class record {
+private:
+    string transactionID;
+    string cardnumber;
+    string transaction_type;
+    int amount;
+    //int num_of_transaction = 0;
+    //record* transaction_records[100];
+    
+public:
+    record(string id, string card, string type, int amt)
+        : transactionID(id), cardnumber(card), transaction_type(type), amount(amt) {
+        transactionID = id;
+        cardnumber = card;
+        transaction_type = type;
+        amount = amt;
+        //transaction_records[num_of_transaction++] = this;
+    }
+    void display_one_transaction() const {
+        cout << "-------------------------------------------" << endl;
+        cout << "Transaction ID: " << transactionID << endl;
+        cout << "Card Number: " << cardnumber << endl;
+        cout << "Transaction Type: " << transaction_type << endl;
+        cout << "Amount: " << amount << endl;
+        cout << "-------------------------------------------" << endl;
+    }
+
+    /*void display_all_transactions() {
+        cout << "------------Transaction History------------" << endl;
+        for (int i = 0; i < num_of_transaction; i++) {
+            transaction_records[i]->display_one_transaction();
+            cout << "-------------------------------------------" << endl;
+        }
+    }*/
+};
+
+
 class ATM {
 private:
     string atmBank;
@@ -236,6 +264,10 @@ private:
     Bank* bank;
     Interface* ui;
     int cash[4]{ 0, 0, 0, 0 };
+    int transaction_order = 0; ////// 거래 번호 추가
+    int num_of_transaction = 0;
+    record* transaction_records[100];////// 거래 내역 추가
+    
 
 public:
     ATM(Bank* atmBank, Account* userAccount, Interface* interface)
@@ -245,6 +277,7 @@ public:
         cash[2] += 25;
         cash[3] += 10;
     }
+
 
     bool card_verification(Account* card) { // card 비밀번호 인증
         string password;
@@ -258,7 +291,7 @@ public:
             cout << (ui->getLanguage() ? "Transaction failed: Password authentication failed" : "거래 실패: 비밀번호 인증 실패") << endl;
             return true;
         }
-        
+
     }
 
     bool deposit() {
@@ -387,6 +420,38 @@ public:
         return true;
     }
 
+    void dispenseCash(int amount) {
+        int denominations[4] = { 50000, 10000, 5000, 1000 };
+        int numNotes[4] = { 0, 0, 0, 0 };
+
+        for (int i = 0; i < 4; ++i) {
+            numNotes[i] = min(amount / denominations[i], cash[i]);
+            amount -= numNotes[i] * denominations[i];
+            cash[i] -= numNotes[i];
+        }
+
+        cout << (ui->getLanguage() ? "Dispensed cash as follows:\n" : "다음과 같이 현금이 지급되었습니다:\n");
+        for (int i = 0; i < 4; ++i) {
+            cout << denominations[i] << (ui->getLanguage() ? " won: " : "원: ") << numNotes[i] << endl;
+        }
+    }
+
+    void reduceCash(int amount) {
+        dispenseCash(amount);
+    }
+
+    bool hasSufficientCash(int input_cash) {
+        if ((cash[0] * 1000 + cash[1] * 5000 + cash[2] * 10000 + cash[3] * 50000) < input_cash) {
+            cout << (ui->getLanguage() ? "Transaction failed: Insufficient cash in ATM" : "거래 실패: ATM 내 현금 부족");
+            ui->transactionCancelled();
+            cout << "=======================================" << endl;
+            return false;
+        }
+        else {
+            return true;
+        }
+    }
+
     bool fee_account_calculator(int fee) { // 계좌에서 수수료 계산
         ui->requestFeePayment(fee);
         cout << (ui->getLanguage() ? "Fee: " : "수수료: ") << fee << endl;
@@ -405,85 +470,97 @@ public:
             return false;
         }
     }
+
     bool withdraw() {
-    int withdrawAmount;
-    string cardBank = account->getAccountNumber().substr(0, 4); // 카드의 은행 코드 확인
-    int withdrawalCount = 0; // 세션 당 인출 횟수 제한
-
-    // 한 세션당 최대 3번 출금
-    while (withdrawalCount < 3) {
-        cout << (ui->getLanguage() ? "\n=== Withdraw Menu ===\nAccount Balance: " : "\n=== 출금 메뉴 ===\n계좌 잔액: ") << account->getAvailableFund() << "won\n";
-        cout << (ui->getLanguage() ? "Enter amount to withdraw or '0' to cancel: " : "출금할 금액을 입력하거나 '0'을 눌러 취소하세요: ");
-        cin >> withdrawAmount;
-
-        // 출금 취소 처리
-        if (withdrawAmount == 0) {
-            ui->transactionCancelled();
-            return false;
+        int withdrawAmount;
+        string cardBank = account->getAccountNumber().substr(0, 4); // 카드의 은행 코드 확인
+        int withdrawalCount = 0; // 세션당 인출 횟수 제한
+    
+        // 한 세션당 최대 3번 출금
+        while (withdrawalCount < 3) {
+            cout << (ui->getLanguage() ? "\n=== Withdraw Menu ===\nAccount Balance: " : "\n=== 출금 메뉴 ===\n계좌 잔액: ") << account->getAvailableFund() << "won\n";
+            cout << (ui->getLanguage() ? "Enter amount to withdraw or '0' to cancel: " : "출금할 금액을 입력하거나 '0'을 눌러 취소하세요: ");
+            cin >> withdrawAmount;
+    
+            // 잘못된 금액(음수) 처리
+            if (withdrawAmount < 0) {
+                cout << (ui->getLanguage() ? "Error: Invalid withdrawal amount. Please enter a positive value." : "오류: 잘못된 출금 금액입니다. 양수를 입력하세요.") << endl;
+                continue;
+            }
+    
+            // 출금 취소 처리
+            if (withdrawAmount == 0) {
+                ui->transactionCancelled();
+                return false;
+            }
+    
+            // 출금 금액 한도 및 계좌 잔액 부족 오류 처리
+            if (withdrawAmount > 500000) {
+                cout << (ui->getLanguage() ? "Error: Transaction limit is 500,000 won per withdrawal." : "오류: 거래 한도는 출금 당 500,000원입니다.") << endl;
+                continue;
+            }
+            if (withdrawAmount > account->getAvailableFund()) {
+                cout << (ui->getLanguage() ? "Error: Insufficient account balance." : "오류: 계좌 잔액이 부족합니다.") << endl;
+                return false;
+            }
+    
+            // ATM 현금 부족 오류 처리
+            if (!atm->hasSufficientCash(withdrawAmount)) {
+                cout << (ui->getLanguage() ? "Error: ATM has insufficient cash." : "오류: ATM에 충분한 현금이 없습니다.") << endl;
+                return false;
+            }
+    
+            // 수수료 계산 및 부족 처리
+            int fee = (cardBank == bank->getBankName()) ? 1000 : 2000;
+            if (account->getAvailableFund() < withdrawAmount + fee) {
+                cout << (ui->getLanguage() ? "Error: Insufficient balance to cover the fee." : "오류: 수수료를 포함한 잔액이 부족합니다.") << endl;
+                return false;
+            }
+    
+            // 지폐 단위별 입력 요청
+            int m1, m2, m3, m4, totalBills;
+            cout << (ui->getLanguage() ? "Enter the number of bills for withdrawal:\n" : "출금할 지폐의 개수를 입력하세요:\n");
+            cout << (ui->getLanguage() ? "1,000 won bills: " : "1,000원 지폐 개수: ");
+            cin >> m1;
+            cout << (ui->getLanguage() ? "5,000 won bills: " : "5,000원 지폐 개수: ");
+            cin >> m2;
+            cout << (ui->getLanguage() ? "10,000 won bills: " : "10,000원 지폐 개수: ");
+            cin >> m3;
+            cout << (ui->getLanguage() ? "50,000 won bills: " : "50,000원 지폐 개수: ");
+            cin >> m4;
+    
+            totalBills = m1 * 1000 + m2 * 5000 + m3 * 10000 + m4 * 50000;
+            if (totalBills != withdrawAmount) {
+                cout << (ui->getLanguage() ? "Error: The entered bills do not match the withdrawal amount." : "오류: 입력한 지폐 금액이 출금 금액과 일치하지 않습니다.") << endl;
+                continue;
+            }
+    
+            // 출금 및 수수료 차감
+            account->decrease_account_balance(withdrawAmount + fee);
+            atm->dispenseCash(withdrawAmount);
+            atm->reduceCash(withdrawAmount);
+            withdrawalCount++;
+    
+            cout << (ui->getLanguage() ? "Withdrawal Successful!" : "출금 성공!") << endl;
+            cout << (ui->getLanguage() ? "Current Balance: " : "현재 잔액: ") << account->getAvailableFund() << "won\n";
+    
+            // 추가 출금 여부 확인
+            int continueWithdrawal;
+            cout << (ui->getLanguage() ? "Would you like to make another withdrawal? (1: Yes, 0: No): " : "추가 인출을 원하시면 1을, 종료하시려면 0을 입력하세요: ");
+            cin >> continueWithdrawal;
+    
+            if (continueWithdrawal == 0) {
+                return true; // 종료
+            } else if (continueWithdrawal != 1) {
+                cout << (ui->getLanguage() ? "Error: Invalid input. Ending withdrawal session." : "오류: 잘못된 입력입니다. 출금 세션을 종료합니다.") << endl;
+                return false;
+            }
         }
-
-        // 출금 금액 한도 및 계좌 잔액 부족 오류 처리
-        if (withdrawAmount > 500000) {
-            cout << (ui->getLanguage() ? "Error: Transaction limit is 500,000 won per withdrawal." : "오류: 거래 한도는 출금 당 500,000원입니다.") << endl;
-            continue;
-        }
-        if (withdrawAmount > account->getAvailableFund()) {
-            cout << (ui->getLanguage() ? "Error: Insufficient account balance." : "오류: 계좌 잔액이 부족합니다.") << endl;
-            return false; // 계좌 잔액 부족 시 종료
-        }
-
-        // ATM 현금 부족 오류 처리
-        if (!atm->hasSufficientCash(withdrawAmount)) {
-            cout << (ui->getLanguage() ? "Error: ATM has insufficient cash." : "오류: ATM에 충분한 현금이 없습니다.") << endl;
-            return false; // ATM 현금 부족 시 종료
-        }
-
-        // 수수료 처리
-        int fee = (cardBank == bank->getBankCode()) ? 1000 : 2000; // 같은 은행은 1000원, 다른 은행은 2000원
-        int insertedFee;
-
-        cout << (ui->getLanguage() ? "Fee: " : "수수료: ") << fee << (ui->getLanguage() ? "won. Enter fee payment: " : "원. 수수료 금액을 입력하세요: ");
-        cin >> insertedFee;
-
-        // 수수료 부족 시 처리
-        if (insertedFee < fee) {
-            cout << (ui->getLanguage() ? "Error: Insufficient fee payment. Returning to the main menu." : "오류: 수수료가 부족합니다. 메인 메뉴로 돌아갑니다.") << endl;
-            return false; // 수수료 부족 시 종료
-        }
-
-        // 수수료 차감
-        account->decrease_account_balance(fee); // 수수료 계좌에서 차감
-        cout << (ui->getLanguage() ? "Fee payment successful." : "수수료 결제 성공.") << endl;
-
-        // ATM에서 현금을 최소 개수로 출금
-        atm->dispenseCash(withdrawAmount); // 최소 개수의 지폐 지급
-        account->decrease_account_balance(withdrawAmount); // 계좌에서 출금 금액 차감
-        atm->reduceCash(withdrawAmount); // ATM에서 현금 차감
-        withdrawalCount++;
-
-        cout << (ui->getLanguage() ? "Withdrawal Successful!" : "출금 성공!") << endl;
-        cout << (ui->getLanguage() ? "Current Balance: " : "현재 잔액: ") << account->getAvailableFund() << "won\n";
-
-        // 추가 출금 여부 확인
-        if (withdrawalCount >= 3) {
-            cout << (ui->getLanguage() ? "Error: Withdrawal limit exceeded. Please restart." : "오류: 3회 초과 인출 불가. 다시 시작하세요.") << endl;
-            return false; // 3회 출금 초과 시 종료
-        }
-
-        cout << (ui->getLanguage() ? "Would you like to make another withdrawal? (1: Yes, 0: No): " : "추가 인출을 원하시면 1을, 종료하시려면 0을 입력하세요: ");
-        int continueWithdrawal;
-        cin >> continueWithdrawal;
-
-        if (continueWithdrawal == 0) {
-            return true; // 종료
-        }
+    
+        cout << (ui->getLanguage() ? "Error: Withdrawal limit exceeded. Please restart." : "오류: 최대 인출 시도를 초과했습니다. 다시 시작하세요.") << endl;
+        return false; // 3회 초과 시 종료
     }
-
-    // 최대 인출 횟수 초과 시 메시지 출력 후 종료
-    cout << (ui->getLanguage() ? "Error: 3 withdraw attempts exceeded. Please restart." : "오류: 최대 인출 시도를 초과했습니다. 다시 시작하세요.") << endl;
-    return false; // 3회 초과 시 종료
-}
-
+    
     bool transfer() {
         int input;
         while (true) {
@@ -561,7 +638,7 @@ public:
                         cout << (ui->getLanguage() ? "Transaction failed: Insufficient account balance" : "거래 실패: 계좌 잔액 부족") << endl;
                         return false;
                     }
-                    
+
                     // 이체 과정
                     account->decrease_account_balance(transferAmount);
                     bank->increase_receiver_balance(account_num, transferAmount);
@@ -610,12 +687,12 @@ public:
                 }
             }
             else if (input == 3) { // 거래 취소
-                    ui->transactionCancelled();
-                    return false;
+                ui->transactionCancelled();
+                return false;
             }
             else {
-                    ui->showErrorMessage();
-                    return false;
+                ui->showErrorMessage();
+                return false;
             }
         }
     }
@@ -640,10 +717,33 @@ public:
             cout << (ui->getLanguage() ? "Insufficient fee payment. Returning to the main menu." : "수수료가 부족하여 거래를 진행할 수 없습니다. 메인 메뉴로 돌아갑니다.") << endl;
         }
     }
+
+    ///////거래 아이디 생성 추가
+    string transactionid() {
+         return account->getAccountNumber().substr(0, 4) + to_string(++transaction_order);
+    }
+
+    ///////거래 내역 기록
+    void transaction_recording(string transaction_type, int amount) {
+        record* recording = new record(this->transactionid(), account->getCardNumber(), transaction_type, amount);
+        transaction_records[num_of_transaction++] = recording;
+    }
+
+    ///////////transaction 보여주는 함수 추가
+    void display_history(string card_number) {
+        if (card_number == "/") {
+            cout << "------------Transaction History------------" << endl;
+            for (int i = 0; i < num_of_transaction; i++) {
+                transaction_records[i]->display_one_transaction();
+                cout << "-------------------------------------------" << endl;
+            }
+        }
+        else if (card_number == account->getCardNumber()) {
+            transaction_records[num_of_transaction]->display_one_transaction();
+        }
 };
 
 int main() {
-
     Bank myBank("kakao", "111");
     Account* Acc1 = myBank.make_account("Ben", "toss", 30000, "1234");
     cout << "[나의 계좌]" << endl;
@@ -670,6 +770,10 @@ int main() {
         if (selection == 1) {
             bool success = atm.deposit();
             if (!success) continue; // Welcome 화면으로 돌아가기
+        }
+        else if (selection == 2) {
+            bool success = atm.withdraw();
+            if (!success) continue;
         }
         else if (selection == 3) {
             bool success = atm.transfer();
