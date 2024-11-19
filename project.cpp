@@ -3,8 +3,10 @@
 #include <cctype>
 using namespace std;
 
-
+class Account;
 class Bank;
+class ATM;
+class Interface;
 
 class Account {
 private:
@@ -495,6 +497,7 @@ public:
         int withdrawAmount;
         string cardBank = account->getAccountNumber().substr(0, 4); // 카드의 은행 코드 확인
         int withdrawalCount = 0; // 세션 당 인출 횟수 제한
+        if (not card_verification(account)) return false;
 
         // 한 세션당 최대 3번 출금
         while (withdrawalCount < 3) {
@@ -523,52 +526,56 @@ public:
 
             // ATM 현금 부족 오류 처리
             if (not hasSufficientCash(withdrawAmount)) {
+                cout << (ui->getLanguage() ? "Error: ATM has insufficient cash." : "오류: ATM에 충분한 현금이 없습니다.") << endl;
                 return false; // ATM 현금 부족 시 종료
             }
 
-            // 수수료 처리
-            int fee = (cardBank == bank->getBankName()) ? 1000 : 2000; // 같은 은행은 1000원, 다른 은행은 2000원
-            int insertedFee;
-
-            cout << (ui->getLanguage() ? "Fee: " : "수수료: ") << fee << (ui->getLanguage() ? "won. Enter fee payment: " : "원. 수수료 금액을 입력하세요: ");
-            cin >> insertedFee;
-
-            // 수수료 부족 시 처리
-            if (insertedFee < fee) {
-                cout << (ui->getLanguage() ? "Error: Insufficient fee payment. Returning to the main menu." : "오류: 수수료가 부족합니다. 메인 메뉴로 돌아갑니다.") << endl;
-                return false; // 수수료 부족 시 종료
+            int fee = (cardBank == bank->getBankName()) ? 1000 : 2000;
+            if (account->getAvailableFund() < withdrawAmount + fee) {
+                cout << (ui->getLanguage() ? "Error: Insufficient balance to cover the fee." : "오류: 수수료를 포함한 잔액이 부족합니다.") << endl;
+                return false;
             }
 
-            // 수수료 차감
-            account->decrease_account_balance(fee); // 수수료 계좌에서 차감
-            cout << (ui->getLanguage() ? "Fee payment successful." : "수수료 결제 성공.") << endl;
-
-            // ATM에서 현금을 최소 개수로 출금
-            dispenseCash(withdrawAmount); // 최소 개수의 지폐 지급
-            account->decrease_account_balance(withdrawAmount); // 계좌에서 출금 금액 차감
-            reduceCash(withdrawAmount); // ATM에서 현금 차감
+            // 지폐 단위별 입력 요청
+            int m1, m2, m3, m4, totalBills;
+            cout << (ui->getLanguage() ? "Enter the number of bills for withdrawal:\n" : "출금할 지폐의 개수를 입력하세요:\n");
+            cout << (ui->getLanguage() ? "1,000 won bills: " : "1,000원 지폐 개수: ");
+            cin >> m1;
+            cout << (ui->getLanguage() ? "5,000 won bills: " : "5,000원 지폐 개수: ");
+            cin >> m2;
+            cout << (ui->getLanguage() ? "10,000 won bills: " : "10,000원 지폐 개수: ");
+            cin >> m3;
+            cout << (ui->getLanguage() ? "50,000 won bills: " : "50,000원 지폐 개수: ");
+            cin >> m4;
+    
+            totalBills = m1 * 1000 + m2 * 5000 + m3 * 10000 + m4 * 50000;
+            if (totalBills != withdrawAmount) {
+                cout << (ui->getLanguage() ? "Error: The entered bills do not match the withdrawal amount." : "오류: 입력한 지폐 금액이 출금 금액과 일치하지 않습니다.") << endl;
+                continue;
+            }
+    
+            // 출금 및 수수료 차감
+            account->decrease_account_balance(withdrawAmount + fee);
+            dispenseCash(withdrawAmount);
+            reduceCash(withdrawAmount);
             withdrawalCount++;
-
+    
             cout << (ui->getLanguage() ? "Withdrawal Successful!" : "출금 성공!") << endl;
             cout << (ui->getLanguage() ? "Current Balance: " : "현재 잔액: ") << account->getAvailableFund() << "won\n";
-
+    
             // 추가 출금 여부 확인
-            if (withdrawalCount >= 3) {
-                cout << (ui->getLanguage() ? "Error: Withdrawal limit exceeded. Please restart." : "오류: 3회 초과 인출 불가. 다시 시작하세요.") << endl;
-                return false; // 3회 출금 초과 시 종료
-            }
-
-            cout << (ui->getLanguage() ? "Would you like to make another withdrawal? (1: Yes, 0: No): " : "추가 인출을 원하시면 1을, 종료하시려면 0을 입력하세요: ");
             int continueWithdrawal;
+            cout << (ui->getLanguage() ? "Would you like to make another withdrawal? (1: Yes, 0: No): " : "추가 인출을 원하시면 1을, 종료하시려면 0을 입력하세요: ");
             cin >> continueWithdrawal;
-
+    
             if (continueWithdrawal == 0) {
                 return true; // 종료
+            } else if (continueWithdrawal != 1) {
+                cout << (ui->getLanguage() ? "Error: Invalid input. Ending withdrawal session." : "오류: 잘못된 입력입니다. 출금 세션을 종료합니다.") << endl;
+                return false;
             }
         }
-
-        // 최대 인출 횟수 초과 시 메시지 출력 후 종료
-        cout << (ui->getLanguage() ? "Error: 3 withdraw attempts exceeded. Please restart." : "오류: 최대 인출 시도를 초과했습니다. 다시 시작하세요.") << endl;
+        cout << (ui->getLanguage() ? "Error: Withdrawal limit exceeded. Please restart." : "오류: 최대 인출 시도를 초과했습니다. 다시 시작하세요.") << endl;
         return false; // 3회 초과 시 종료
     }
 
