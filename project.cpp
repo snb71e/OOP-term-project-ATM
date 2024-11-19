@@ -476,42 +476,90 @@ public:
             }
         }
     }
-
+    
     bool fee_cash_calculator(int fee) { // 현금으로 수수료 계산 + ATM 현금 감소
         ui->requestFeePayment(fee);
-        int m1, m2, m3, m4, depositAmount;
+    
+        int m1, m2, m3, m4;
+        int total = 0; // 총 투입된 금액
+        int depositAmount = 0; // 총 투입된 금액 계산
+    
+        // 1,000원 지폐 수 입력
         cout << (ui->getLanguage() ? "Number of 1,000 bills: " : "1,000원 투입 개수: ");
         cin >> m1;
-        cout << (ui->getLanguage() ? "Number of 5,000 bills: " : "5,000원 투입 개수: ");
-        cin >> m2;
-        cout << (ui->getLanguage() ? "Number of 10,000 bills: " : "10,000원 투입 개수: ");
-        cin >> m3;
-        cout << (ui->getLanguage() ? "Number of 50,000 bills: " : "50,000원 투입 개수: ");
-        cin >> m4;
-        depositAmount = m1 * 1000 + m2 * 5000 + m3 * 10000 + m4 * 50000;
-        cout << depositAmount << (ui->getLanguage() ? "KRW entered. " : "원 들어왔습니다.") << endl;
-        cout << "=======================================" << endl;
-        cash[0] += m1;
-        cash[1] += m2;
-        cash[2] += m3;
-        cash[3] += m4;
-        if (depositAmount >= fee) {
-            if (depositAmount > fee) {
-                cout << (ui->getLanguage() ? "Change: " : "거스름돈: ") << depositAmount - fee << endl;
-                cout << "=======================================" << endl;
-                if (not change_ATM_dec(depositAmount - fee)) {
+        total += m1 * 1000; // 1,000원 지폐 금액 계산
+        depositAmount += m1 * 1000;
+    
+        if (total >= fee) {
+            cout << (ui->getLanguage() ? "Fee paid successfully. " : "수수료 납부 성공") << endl;
+            if (total > fee) {
+                int change = total - fee;
+                cout << (ui->getLanguage() ? "Change: " : "거스름돈: ") << change <<  "원" << endl;
+                if (!change_ATM_dec(change)) {
                     return false;
                 }
             }
+            return true; // 수수료 납부 성공 후 메인 메뉴로 돌아감
+        }
+    
+        // 5,000원 지폐 수 입력
+        cout << (ui->getLanguage() ? "Number of 5,000 bills: " : "5,000원 투입 개수: ");
+        cin >> m2;
+        total += m2 * 5000;
+        depositAmount += m2 * 5000;
+    
+        if (total >= fee) {
             cout << (ui->getLanguage() ? "Fee paid successfully. " : "수수료 납부 성공") << endl;
-            return true;
+            if (total > fee) {
+                int change = total - fee;
+                cout << (ui->getLanguage() ? "Change: " : "거스름돈: ") << change << "원" << endl;
+                if (!change_ATM_dec(change)) {
+                    return false;
+                }
+            }
+            return true; // 수수료 납부 성공 후 메인 메뉴로 돌아감
         }
-        else {
-            ui->showErrorMessage();
-            cout << (ui->getLanguage() ? "Failure to pay fees: Insufficient cash" : "수수료 납부 실패: 현금 부족") << endl;
-            return false;
+    
+        // 10,000원 지폐 수 입력
+        cout << (ui->getLanguage() ? "Number of 10,000 bills: " : "10,000원 투입 개수: ");
+        cin >> m3;
+        total += m3 * 10000;
+        depositAmount += m3 * 10000;
+    
+        if (total >= fee) {
+            cout << (ui->getLanguage() ? "Fee paid successfully. " : "수수료 납부 성공") << endl;
+            if (total > fee) {
+                int change = total - fee;
+                cout << (ui->getLanguage() ? "Change: " : "거스름돈: ") << change <<  "원" << endl;
+                if (!change_ATM_dec(change)) {
+                    return false;
+                }
+            }
+            return true; // 수수료 납부 성공 후 메인 메뉴로 돌아감
         }
+    
+        // 50,000원 지폐 수 입력
+        cout << (ui->getLanguage() ? "Number of 50,000 bills: " : "50,000원 투입 개수: ");
+        cin >> m4;
+        total += m4 * 50000;
+        depositAmount += m4 * 50000;
+    
+        if (total >= fee) {
+            cout << (ui->getLanguage() ? "Fee paid successfully. " : "수수료 납부 성공") << endl;
+            if (total > fee) {
+                int change = total - fee;
+                cout << (ui->getLanguage() ? "Change: " : "거스름돈: ") << change <<  "원" << endl;
+                if (!change_ATM_dec(change)) {
+                    return false;
+                }
+            }
+            return true; // 수수료 납부 성공 후 메인 메뉴로 돌아감
+        }
+    
+        cout << (ui->getLanguage() ? "Failure to pay fees: Insufficient cash" : "수수료 납부 실패: 현금 부족") << endl;
+        return false;
     }
+
 
     bool change_ATM_dec(int change) { // 거스름돈 줄 때 ATM 가용 현금 감소
         int num_cash[4]{ 0,0,0,0 };
@@ -825,7 +873,7 @@ public:
         int fee = bank->calculateFee(cardBank);
 
         fee_cash_calculator(fee);
-
+/*
         if (fee_cash_calculator(fee) >= fee) {
             account->increase_account_balance(depositAmount);
             ui->showDepositAmount(depositAmount);
@@ -837,7 +885,7 @@ public:
         }
         else {
             cout << (ui->getLanguage() ? "Insufficient fee payment. Returning to the main menu." : "수수료가 부족하여 거래를 진행할 수 없습니다. 메인 메뉴로 돌아갑니다.") << endl;
-        }
+        }*/
     }
     ///////거래 아이디 생성 추가
     string transactionid() {
