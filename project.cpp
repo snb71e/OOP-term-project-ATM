@@ -228,7 +228,7 @@ private:
     int amount;
     //int num_of_transaction = 0;
     //record* transaction_records[100];
-    
+
 public:
     record(string id, string card, string type, int amt)
         : transactionID(id), cardnumber(card), transaction_type(type), amount(amt) {
@@ -267,7 +267,7 @@ private:
     int transaction_order = 0; ////// 거래 번호 추가
     int num_of_transaction = 0;
     record* transaction_records[100];////// 거래 내역 추가
-    
+
 
 public:
     ATM(Bank* atmBank, Account* userAccount, Interface* interface)
@@ -707,7 +707,7 @@ public:
 
     ///////거래 아이디 생성 추가
     string transactionid() {
-         return account->getAccountNumber().substr(0, 4) + to_string(++transaction_order);
+        return account->getAccountNumber().substr(0, 4) + to_string(++transaction_order);
     }
 
     ///////거래 내역 기록
@@ -728,6 +728,7 @@ public:
         else if (card_number == account->getCardNumber()) {
             transaction_records[num_of_transaction]->display_one_transaction();
         }
+    }
 };
 
 int main() {
@@ -770,5 +771,5 @@ int main() {
             cout << (ui.getLanguage() ? "Option not yet implemented." : "아직 구현되지 않은 옵션입니다.") << endl;
         }
     }
-
 }
+  
