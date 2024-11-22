@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "*.tcc": "cpp",
-        "limits": "cpp"
+        "limits": "cpp",
+        "chrono": "cpp"
     }
 }
