@@ -173,7 +173,7 @@ public:
             return nullptr;
         }
 
-        // 계좌 번호 생성
+        // 계좌 번호 생성 (은행 고유 번호 + 현재 계좌 수 + 1)
         string account_number = bank_number + to_string(num_of_accounts + 1);
 
         // 카드 번호 생성 (12자리: 앞 4자리 은행 고유 번호 + 뒤 8자리 무작위 숫자)
@@ -1028,34 +1028,24 @@ public:
         dispenseCash(amount);
     }
 
-    bool card_verification(Account* card) { // 카드 비밀번호 인증
+    bool card_verification(Account* card) { // card 비밀번호 인증
         for (int i = 0; i < 3; i++) {
             string password;
             cout << (ui->getLanguage() ? "Please enter your card password." : "카드 비밀번호를 입력해 주세요.") << endl;
-
-            // 비밀번호 입력 받기 (공백 포함 가능하도록 getline 사용)
-            getline(cin, password);
-
-            // 비밀번호가 비어있지 않은지 확인
-            if (password.empty()) {
-                cout << (ui->getLanguage() ? "Password cannot be empty. Please try again." : "비밀번호는 비어 있을 수 없습니다. 다시 시도해 주세요.") << endl;
-                continue;
-            }
-
-            // 비밀번호 인증
+            cin >> password;
+            if (not isInteger(password)) return false;
             if (bank->show_authorize(card->getAccountNumber(), password)) {
-                cout << (ui->getLanguage() ? "Password verified successfully" : "비밀번호 인증 성공") << endl;
+                cout << (ui->getLanguage() ? "Password verificated successfully" : "비밀번호 인증 성공") << endl;
                 return true;
             }
             else {
                 cout << (ui->getLanguage() ? "Password does not match." : "비밀번호가 일치하지 않습니다.") << endl;
-                cout << (ui->getLanguage() ? "Number of attempts to enter password: " : "남은 비밀번호 입력 가능 횟수: ") << 2 - i << endl;
+                cout << (ui->getLanguage() ? "Number of attempts to enter password: " : "남은 비밀 번호 입력 가능 횟수: ") << 2 - i << endl;
             }
         }
-
-        // 비밀번호 인증 실패 시 메시지 출력
         cout << (ui->getLanguage() ? "Transaction failed: Password authentication failed" : "거래 실패: 비밀번호 인증 실패") << endl;
         return false;
+
     }
 
 
@@ -1329,52 +1319,39 @@ public:
 
     bool withdraw() {
         int withdrawAmount;
-        string cardBank = account->getAccountNumber().substr(0, 4);
-        try {
-            cardBank = account->getAccountNumber().substr(0, 4); // 카드 은행 코드 추출
-        }
-        catch (const std::length_error& e) {
-            cout << "Length error in withdraw(): " << e.what() << endl;
-            return false; // 오류 처리
-        }
-        catch (const std::exception& e) {
-            cout << "Exception in withdraw(): " << e.what() << endl;
-            return false;
-        }
-        int withdrawalCount = 0;
+        string cardBank = account->getAccountNumber().substr(0, 4); // 카드의 은행 코드 확인
+        int withdrawalCount = 0; // 세션 당 인출 횟수 제한
+        if (not card_verification(account)) return false;
 
-        if (!card_verification(account)) return false;
-
+        // 한 세션당 최대 3번 출금
         while (withdrawalCount < 3) {
-            // 출금 메뉴 UI 출력
-            ui->showWithdrawMenu(account->getAvailableFund());
-
-            // 금액 입력
+            cout << (ui->getLanguage() ? "\n=== Withdraw Menu ===\nAccount Balance: " : "\n=== 출금 메뉴 ===\n계좌 잔액: ") << account->getAvailableFund() << "won\n";
+            cout << (ui->getLanguage() ? "Enter amount to withdraw or '0' to cancel: " : "출금할 금액을 입력하거나 '0'을 눌러 취소하세요: ");
             while (true) {
                 cin >> withdrawAmount;
-                if (withdrawAmount >= 0) break;
-                cout << "오류: 잘못된 입력입니다. 다시 시도해주세요." << endl;
+                if (isPositive(withdrawAmount)) break;
             }
 
+            // 출금 취소 처리
             if (withdrawAmount == 0) {
                 ui->transactionCancelled();
                 return false;
             }
 
-            // 금액 유효성 확인
+            // 출금 금액 한도 및 계좌 잔액 부족 오류 처리
             if (withdrawAmount > 500000) {
                 cout << (ui->getLanguage() ? "Error: Transaction limit is 500,000 won per withdrawal." : "오류: 거래 한도는 출금 당 500,000원입니다.") << endl;
                 continue;
             }
-
             if (withdrawAmount > account->getAvailableFund()) {
                 cout << (ui->getLanguage() ? "Error: Insufficient account balance." : "오류: 계좌 잔액이 부족합니다.") << endl;
-                return false;
+                return false; // 계좌 잔액 부족 시 종료
             }
 
-            if (!hasSufficientCash(withdrawAmount)) {
+            // ATM 현금 부족 오류 처리
+            if (not hasSufficientCash(withdrawAmount)) {
                 cout << (ui->getLanguage() ? "Error: ATM has insufficient cash." : "오류: ATM에 충분한 현금이 없습니다.") << endl;
-                return false;
+                return false; // ATM 현금 부족 시 종료
             }
 
             int fee = (cardBank == bank->getBankName()) ? 1000 : 2000;
@@ -1383,9 +1360,7 @@ public:
                 return false;
             }
 
-            // 지폐 입력 UI
-            ui->showBillInputUI();
-
+            // 지폐 단위별 입력 요청
             int m1, m2, m3, m4, totalBills;
             cout << (ui->getLanguage() ? "Enter the number of bills for withdrawal:\n" : "출금할 지폐의 개수를 입력하세요:\n");
             cout << (ui->getLanguage() ? "1,000 won bills: " : "1,000원 지폐 개수: ");
@@ -1403,84 +1378,64 @@ public:
                 continue;
             }
 
-            // 출금 처리
+            // 출금 및 수수료 차감
             account->decrease_account_balance(withdrawAmount + fee);
             dispenseCash(withdrawAmount);
             reduceCash(withdrawAmount);
             withdrawalCount++;
 
-            // 출금 성공 UI 출력
-            ui->showWithdrawSuccessUI(account->getAvailableFund());
+            cout << (ui->getLanguage() ? "Withdrawal Successful!" : "출금 성공!") << endl;
+            cout << (ui->getLanguage() ? "Current Balance: " : "현재 잔액: ") << account->getAvailableFund() << "won\n";
 
             // 추가 출금 여부 확인
             int continueWithdrawal;
-            cout << "추가 인출을 원하시면 1을, 종료하시려면 0을 입력하세요: ";
+            cout << (ui->getLanguage() ? "Would you like to make another withdrawal? (1: Yes, 0: No): " : "추가 인출을 원하시면 1을, 종료하시려면 0을 입력하세요: ");
             cin >> continueWithdrawal;
 
             if (continueWithdrawal == 0) {
+
                 transaction_recording("Withdraw", withdrawAmount);
                 display_history(account->getCardNumber());
 
-                return true;
+                return true; // 종료
             }
             else if (continueWithdrawal != 1) {
                 cout << (ui->getLanguage() ? "Error: Invalid input. Ending withdrawal session." : "오류: 잘못된 입력입니다. 출금 세션을 종료합니다.") << endl;
                 return false;
             }
         }
-
         cout << (ui->getLanguage() ? "Error: Withdrawal limit exceeded. Please restart." : "오류: 최대 인출 시도를 초과했습니다. 다시 시작하세요.") << endl;
-        return false;
+        return false; // 3회 초과 시 종료
     }
+
 
     bool transfer() {
         int input;
-        string cardBank;
-
-        try {
-            cardBank = account->getAccountNumber().substr(0, 4);
-        }
-        catch (const std::length_error& e) {
-            cout << "Length error in transfer(): " << e.what() << endl;
-            return false; // 오류 처리
-        }
-        catch (const std::exception& e) {
-            cout << "Exception in transfer(): " << e.what() << endl;
-            return false;
-        }
         while (true) {
-            ui->showTransferOptionsUI(); // 송금 옵션 UI 출력
+            ui->showTransferOptions();
             cin >> input;
-
-            if (input == 1) { // 현금 송금
-                ui->showAccountInputUI();
-                string accountNum;
-                cin >> accountNum;
-
-                if (!isInteger(accountNum)) return false;
-                if (accountNum == "0") {
-                    ui->showTransactionCancelledUI();
+            if (input == 1) { //현금 송금
+                cout << (ui->getLanguage() ? "Please enter the account to transfer or '0' to cancel." : "송금할 계좌를 입력하거나 '0'을 눌러 취소하세요.") << endl;
+                string account_num;
+                cin >> account_num;
+                if (not isInteger(account_num)) return false;
+                if (account_num == "0") {
+                    ui->transactionCancelled();
                     return false;
                 }
-
-                if (bank->hasAccount(accountNum)) { // 계좌 유효성 검사
+                if (bank->hasAccount(account_num)) { // 존재하는 계좌인 경우
                     int transferAmount;
                     cout << (ui->getLanguage() ? "How much money do you want to transfer" : "얼만큼의 돈을 송금하시겠습니까?") << endl;
                     cout << (ui->getLanguage() ? "Enter amount to transfer or '0' to cancel" : "송금할 금액을 입력하거나 '0'을 눌러 취소하세요.") << endl;
-
                     while (true) {
                         cin >> transferAmount;
-                        if (transferAmount >= 0) break;
+                        if (isPositive(transferAmount)) break;
                     }
-
                     if (transferAmount == 0) {
-                        ui->showTransactionCancelledUI();
+                        ui->transactionCancelled();
                         return false;
                     }
 
-                    ui->showTransferCashUI(transferAmount);
-
-                    // 현금 투입 과정
                     int m1, m2, m3, m4, deposited;
                     cout << (ui->getLanguage() ? "Number of 1,000 bills: " : "1,000원 투입 개수: ");
                     while (true) {
@@ -1503,105 +1458,145 @@ public:
                         if (isPositive(m4)) break;
                     }
 
+
                     deposited = m1 * 1000 + m2 * 5000 + m3 * 10000 + m4 * 50000;
                     cout << "=======================================" << endl;
 
-                    if (deposited < transferAmount) {
+                    if (deposited < transferAmount) { // 부족한 돈을 넣은 경우
                         cout << (ui->getLanguage() ? "Transaction failed: Insufficient cash" : "거래 실패: 현금 부족") << endl;
                         cout << "=======================================" << endl;
-
-                        continue;
+                        break; //TransferOption으로
                     }
-
-                    if (deposited > transferAmount) {
+                    else if (deposited > transferAmount) { // 초과된 돈을 넣은 경우
                         cout << (ui->getLanguage() ? "Transfer amount: " : "송금 금액: ") << transferAmount << endl;
                         cout << (ui->getLanguage() ? "Amount entered: " : "투입된 금액: ") << deposited << endl << endl;
                         cout << (ui->getLanguage() ? "Change: " : "거스름돈: ") << deposited - transferAmount << endl;
                         cout << "=======================================" << endl;
-
                     }
 
-                    // 수수료 처리
-                    if (!fee_cash_calculator(1000)) {
-                        // 수수료 부족: 투입 금액 반환
+                    // 수수료 부과
+                    if (fee_cash_calculator(1000)) {
                         transaction_recording("Cash Transfer", transferAmount);
                         display_history(account->getCardNumber());
 
-                        cout << (ui->getLanguage() ? "Transaction failed: fee payment issue." : "거래 실패: 수수료 납부 실패") << endl;
-                        continue;
-                    }
+                        cout << (ui->getLanguage() ? "Transaction successful" : "거래 성공") << endl;
 
-                    // 송금 처리
-                    bank->increase_receiver_balance(accountNum, transferAmount);
-                    ui->showTransferSuccessUI(account->getAvailableFund());
+                    }
+                    else { // 수수료 실패: 다시 돈 빼기
+                        cash[0] -= m1;
+                        cash[1] -= m2;
+                        cash[2] -= m3;
+                        cash[3] -= m4;
+                        cout << (ui->getLanguage() ? "Transaction failed: fee payment issue." : "거래 실패: 수수료 납부 실패") << endl;
+                    }
                 }
-                else {
-                    ui->showErrorUI(ui->getLanguage() ? "Transaction failed: Non-existent account" : "거래 실패: 존재하지 않는 계좌");
+                else { // 잘못된 계좌 번호 입력
+                    cout << (ui->getLanguage() ? "Transaction failed: Non-existent account" : "거래 실패: 존재하지 않는 계좌") << endl;
+                    cout << "=======================================" << endl;
+                    // welcome으로
                     return false;
                 }
             }
+            else if (input == 2) { //계좌 송금
+                string cardBank = account->getAccountNumber().substr(0, 4);
+                string ATMBank = bank->getBankNumber();
 
-            else if (input == 2) { // 계좌 송금
-                string accountNum;
-                ui->showAccountInputUI();
-                cin >> accountNum;
+                // card 검증 단계
+                if (not card_verification(account)) return false;
+                cout << "=======================================" << endl;
 
-                if (!isInteger(accountNum)) return false;
-                if (accountNum == "0") {
-                    ui->showTransactionCancelledUI();
+                cout << (ui->getLanguage() ? "Please enter the account to transfer or '0' to cancel." : "송금할 계좌를 입력하거나 '0'을 눌러 취소하세요.") << endl;
+                string account_num;
+                cin >> account_num;
+                if (not isInteger(account_num)) return false;
+                if (account_num == "0") {
+                    ui->transactionCancelled();
                     return false;
                 }
-
-                if (bank->hasAccount(accountNum)) {
+                if (bank->hasAccount(account_num)) { // 존재하는 계좌인 경우
+                    string transferBank = account_num.substr(0, 4);
                     double transferAmount;
                     cout << (ui->getLanguage() ? "How much money do you want to transfer" : "얼만큼의 돈을 송금하시겠습니까?") << endl;
                     cout << account->getAvailableFund() << (ui->getLanguage() ? "KRW You can transfer." : "원 송금 가능합니다.") << endl;
                     cout << endl << (ui->getLanguage() ? "Enter amount to transfer or '0' to cancel" : "송금할 금액을 입력하거나 '0'을 눌러 취소하세요.") << endl;
-
                     while (true) {
                         cin >> transferAmount;
-                        if (transferAmount >= 0) break;
+                        if (isPositive(transferAmount)) break;
                     }
-
+                    cout << "=======================================" << endl;
                     if (transferAmount == 0) {
-                        ui->showTransactionCancelledUI();
+                        ui->transactionCancelled();
                         return false;
                     }
-
-                    if (account->getAvailableFund() < transferAmount) {
+                    if (account->getAvailableFund() < transferAmount) { // 계좌에 돈이 부족한 경우
                         cout << (ui->getLanguage() ? "Transaction failed: Insufficient account balance" : "거래 실패: 계좌 잔액 부족") << endl;
                         return false;
                     }
 
-                    // 수수료 및 송금 처리
-                    int fee = fee_account_calculator(static_cast<int>(transferAmount)); // `double`에서 `int`로 명시적 변환
-                    if (fee == -1) {
-                        cout << (ui->getLanguage() ? "Transaction failed: fee payment issue." : "거래 실패: 수수료 납부 실패") << endl;
-                        return false;
-                    }
+                    // 이체 과정
+                    account->decrease_account_balance(transferAmount);
+                    bank->increase_receiver_balance(account_num, transferAmount);
 
-                    account->decrease_account_balance(transferAmount + fee);
-                    bank->increase_receiver_balance(accountNum, transferAmount);
-                    ui->showTransferSuccessUI(account->getAvailableFund());
+                    // 수수료 부과
+                    if ((ATMBank == cardBank) and (cardBank == transferBank)) { // 같은 은행 : 같은 계좌
+                        if (fee_account_calculator(2000)) {
+                            cout << (ui->getLanguage() ? "Transfer completed successfully" : "송금 성공") << endl;
+                            cout << (ui->getLanguage() ? "Account Balance: " : "계좌 잔액: ") << account->getAvailableFund() << endl;
+                            cout << "=======================================" << endl;
+                            transaction_recording("Transfer", transferAmount);
+                            display_history(account->getCardNumber());
+                        }
+                        else { // 수수료 실패 다시 이체금 넣어 주기
+                            account->increase_account_balance(transferAmount);
+                            return false;
+                        }
+
+                    }
+                    else if ((ATMBank == cardBank) and (cardBank != transferBank)) { // 같은 은행 : 다른 계좌
+                        if (fee_account_calculator(3000)) {
+                            cout << (ui->getLanguage() ? "Transfer completed successfully" : "송금 성공") << endl;
+                            cout << (ui->getLanguage() ? "Account Balance: " : "계좌 잔액: ") << account->getAvailableFund() << endl;
+                            cout << "=======================================" << endl;
+                            transaction_recording("Transfer", transferAmount);
+                            display_history(account->getCardNumber());
+
+                        }
+                        else {
+                            account->increase_account_balance(transferAmount);
+                            return false;
+                        }
+                    }
+                    else { // 다른 은행 : 다른 계좌
+                        if (fee_account_calculator(4000)) {
+                            cout << (ui->getLanguage() ? "Transfer completed successfully" : "송금 성공") << endl;
+                            cout << (ui->getLanguage() ? "Account Balance: " : "계좌 잔액: ") << account->getAvailableFund() << endl;
+                            cout << "=======================================" << endl;
+                            transaction_recording("Transfer", transferAmount);
+                            display_history(account->getCardNumber());
+                        }
+                        else {
+                            account->increase_account_balance(transferAmount);
+                            return false;
+                        }
+                    }
                 }
-                else {
-                    ui->showErrorUI(ui->getLanguage() ? "Transaction failed: Non-existent account" : "거래 실패: 존재하지 않는 계좌");
+                else { // 잘못된 계좌 번호 입력
+                    cout << "=======================================" << endl;
+                    cout << (ui->getLanguage() ? "Transaction failed: Non-existent account" : "거래 실패: 존재하지 않는 계좌") << endl;
+                    // welcome으로
                     return false;
                 }
             }
-
             else if (input == 3) { // 거래 취소
-                ui->showTransactionCancelledUI();
+                ui->transactionCancelled();
                 return false;
             }
-
             else {
                 ui->showErrorMessage();
+                return false;
             }
         }
-        return false;
     }
-
 
 
     void processTransaction(int depositAmount, const string& cardBank) {
@@ -1714,8 +1709,8 @@ void display_account() {
 int main() {
     // 은행 및 계정 초기화
     Interface ui;
-    Bank myBank("kakao", "111");
-    Account* myAccount = myBank.make_account("K", "kakao", 10000, "2345");
+    Bank myBank("kakao", "3333");
+    Account* myAccount = myBank.make_account("K", "kakao", 10000, "0000");
     ATM atm(&myBank, myAccount, &ui);
     vector<Bank*> bank_list; // 여러 은행을 저장할 벡터
 
@@ -1738,6 +1733,10 @@ int main() {
                     cin >> bankName;
                     cout << (ui.getLanguage() ? "Enter the bank code: " : "은행 코드를 입력하세요: ");
                     cin >> bankCode;
+                    if (bankCode.length() != 4) {
+                        cout << "Error: Bank code must be 4 digits." << endl;
+                        continue;
+                    }
                     bank_list.push_back(new Bank(bankName, bankCode));
                     cout << (ui.getLanguage() ? "Bank added successfully.\n" : "은행이 성공적으로 추가되었습니다.\n");
                 }
@@ -1750,9 +1749,9 @@ int main() {
                     bool found = false;
                     for (auto it = bank_list.begin(); it != bank_list.end(); ++it) {
                         if ((*it)->getBankNumber() == bankCode) {
+                            cout << "Deleting bank: " << (*it)->getBankNumber() << endl;
                             delete* it;
                             bank_list.erase(it);
-                            cout << (ui.getLanguage() ? "Bank removed successfully.\n" : "은행이 성공적으로 삭제되었습니다.\n");
                             found = true;
                             break;
                         }
