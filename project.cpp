@@ -97,10 +97,13 @@ public:
 
         return new_account;
     }
+
+    int getnumofaccount() { return num_of_accounts; }
     /*Bank(string name) : bank_name(name) {}
     int calculateFee(const string& cardBank) const {
         return (cardBank == bank_name) ? 1000 : 2000;
     }*/
+    Account* access_to_account(int i) { return accounts[i]; }
 
     int calculateFee(string transaction_type, string cardBank = "", string target_bank = "") {
         if (transaction_type == "transfer") {
@@ -306,6 +309,7 @@ public:
         atm_list[num_of_ATM++] = this;
     }
     string getatmNumber() { return atmNumber; }
+    string getremainingcash(int i) { return to_string(cash[i]); }
 
     string make_atmNumber(Bank* atmBank) {
         int random_number3 = rand() % 900 + 100;
@@ -947,7 +951,7 @@ public:
 
     ///////////transaction 보여주는 함수 추가
     void display_history(string card_number) {
-        if (card_number == "/") {
+        if (card_number == "admin") {
             cout << "Transaction History Inquiry : Would you like to make an inquiry?\n거래 기록 조회 : 조회하시겠습니까?" << endl;
             cout << "1. Yes\n2. no" << endl;
             string select;
@@ -974,9 +978,9 @@ public:
                     file << "************Transaction History************" << endl;
 
                     for (int i = 0; i < num_of_transaction; i++) {
-                        
+
                         file << "-------------------------------------------" << endl;
-                        file << "Transaction ID: " << transaction_records[i] -> gettransactionID() << endl;
+                        file << "Transaction ID: " << transaction_records[i]->gettransactionID() << endl;
                         file << "Card Number: " << transaction_records[i]->getcardnumber() << endl;
                         file << "Transaction Type: " << transaction_records[i]->gettransaction_type() << endl;
                         file << "Amount: " << transaction_records[i]->getamount() << endl;
@@ -991,13 +995,32 @@ public:
             else if (select == "2") {
                 cout << "Return to Main" << endl;
             }
-            
+
         }
         else if (card_number == account->getCardNumber()) {
             transaction_records[num_of_transaction - 1]->display_one_transaction();
         }
     }
 };
+
+
+void display_atm() {
+    for (int i = 0; i < num_of_ATM; i++) {
+        cout << "ATM[SN:" << atm_list[i]->getatmNumber() << "] remaining cash : {KRW 50000 : " << atm_list[i]->getremainingcash(3) << ", KRW 10000 : " << atm_list[i]->getremainingcash(2) << ", KRW 5000 : " << atm_list[i]->getremainingcash(1)
+            << ", KRW 1000 : " << atm_list[i]->getremainingcash(0) << "} " << endl;
+    }
+}
+
+
+void display_account() {
+    for (int i = 0; i < num_of_banks; i++) {
+        for (int j = 0; j < bank_list[i]->getnumofaccount(); j++) {
+
+            cout << "Account[Bank:" << bank_list[i]->getBankName() << ", No : " << bank_list[i]->access_to_account(j)->getAccountNumber() << ", Owner : " << bank_list[i]->access_to_account(j)->getOwnerName() << "]"
+                << " balance: " << bank_list[i]->access_to_account(j)->getAvailableFund() << endl;
+        }
+    }
+}
 
 
 //ATM make_atm(Bank* bank_name) {
@@ -1076,7 +1099,12 @@ int main() {
             if (!success) continue;
         }
         else if (selection == "/") {
-            atm.display_history("/");
+            display_account();
+            //display_atm(); -> atm 수정 이후
+            continue;
+        }
+        else if (selection == "admin") {
+            atm.display_history("admin");
             continue;
         }
 
