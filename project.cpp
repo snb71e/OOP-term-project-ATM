@@ -867,76 +867,96 @@ public:
         string cardNumber;
         cin >> cardNumber;
 
-        if (cardNumber.empty()) {
-            cout << (ui->getLanguage() ? "Error: Card number cannot be empty." : "오류: 카드 번호는 비어 있을 수 없습니다.") << endl;
+        // 카드 번호가 비어있거나 12자리가 아닐 경우
+        if (cardNumber.empty() || cardNumber.length() != 12 || !std::all_of(cardNumber.begin(), cardNumber.end(), ::isdigit)) {
+            cout << (ui->getLanguage() ? "Error: Invalid card number. Please enter a 12-digit number." : "오류: 유효하지 않은 카드 번호입니다. 12자리 숫자를 입력하세요.") << endl;
             return false;
         }
 
-        if (cardNumber.length() < 4) {
-            cout << (ui->getLanguage() ? "Error: Card number too short." : "오류: 카드 번호가 너무 짧습니다.") << endl;
-            return false;
-        }
-
-        string bankCode = cardNumber.substr(0, 4);
+        string bankCode = cardNumber.substr(0, 4); // 카드 번호 앞 4자리 은행 코드 추출
         cout << "Debug: Extracted bank code = " << bankCode << endl;
 
+        // 카드 번호가 등록된 카드인지 확인
         if (cards.find(cardNumber) == cards.end()) {
             cout << "Error: Card not found." << endl;
             return false;
         }
 
         Card& card = cards[cardNumber];
-        return authenticateUser(card);
+
+        // 비밀번호 인증
+        string inputPassword;
+        cout << (ui->getLanguage() ? "Enter your password: " : "비밀번호를 입력하세요: ");
+        cin >> inputPassword;
+
+        if (card.password != inputPassword) {
+            cout << (ui->getLanguage() ? "Incorrect password. Please try again." : "비밀번호가 틀렸습니다. 다시 시도하세요.") << endl;
+            return false;
+        }
+
+        cout << (ui->getLanguage() ? "Card authentication successful!" : "카드 인증 성공!") << endl;
+        return true;
     }
 
 
     void adminMenu() {
         while (true) {
-            ui->showAdminMenu();
-            int choice;
-            cin >> choice;
+            ui->showAdminMenu(); // 관리자 메뉴 출력
+            string selection;
+            cin >> selection;
 
-            if (choice == 1) {
-                //viewTransactionHistory(); // 거래 내역 보기
-                cout << "아직 구현되지 않은 기능입니다" << endl;
+            if (selection == "/") {
+                // 관리자일 경우 모든 거래 내역 출력
+                display_history("admin");
+                continue;  // 다시 메뉴로 돌아감
             }
-            else if (choice == 2) {
-                cout << (ui->getLanguage() ? "Exiting admin menu. Returning to language selection.\n"
-                    : "관리자 메뉴를 종료합니다. 언어 선택 화면으로 돌아갑니다.\n");
+            else if (selection == "1") {
+                // 관리자 기능: 거래 내역 조회
+                cout << "Viewing transaction history..." << endl;
+                display_history("admin");
+            }
+            else if (selection == "2") {
+                cout << (ui->getLanguage() ? "Exiting admin menu. Returning to main menu.\n" : "관리자 메뉴를 종료합니다. 메인 메뉴로 돌아갑니다.\n");
                 break; // 관리자 메뉴 종료
             }
             else {
-                cout << (ui->getLanguage() ? "Invalid choice. Try again.\n" : "잘못된 선택입니다. 다시 시도해 주세요.\n");
+                cout << (ui->getLanguage() ? "Invalid option. Try again.\n" : "잘못된 선택입니다. 다시 시도해 주세요.\n");
             }
         }
     }
 
     void userMenu() {
         while (true) {
-            ui->showUserMenu();
-            int selection;
+            ui->showUserMenu(); // 사용자 메뉴 출력
+            string selection;
             cin >> selection;
 
-            if (cin.fail()) {
-                cin.clear();
-                cin.ignore(numeric_limits<streamsize>::max(), '\n');
-                cout << (ui->getLanguage() ? "Invalid input. Please try again.\n" : "잘못된 입력입니다. 다시 시도해 주세요.\n");
+            if (selection == "/") {
+                // 거래 내역을 출력
+                display_history(account->getCardNumber());
+                continue;  // 다시 메뉴로 돌아감
+            }
+            else if (selection == "admin") {
+                // 관리자 메뉴로 이동
+                adminMenu();
                 continue;
             }
 
-            if (selection == 1) {
-                bool success = deposit();
-                if (!success) continue; // 실패 시 메뉴로 돌아가기
+            // 숫자 입력일 경우에는 기존 메뉴 처리
+            int option = stoi(selection); // 선택을 숫자 옵션으로 변환
+            if (option == 1) {
+                bool success = deposit();  // 입금 기능 호출
+                if (!success) continue; // 실패 시 다시 메뉴로 돌아가도록
             }
-            else if (selection == 2) {
-                bool success = withdraw();
-                if (!success) continue; // 실패 시 메뉴로 돌아가기
+            else if (option == 2) {
+                bool success = withdraw();  // 출금 기능 호출
+                if (!success) continue; // 실패 시 다시 메뉴로 돌아가도록
             }
-            else if (selection == 3) {
-                bool success = transfer();
-                if (!success) continue; // 실패 시 메뉴로 돌아가기
+            else if (option == 3) {
+                bool success = transfer();  // 송금 기능 호출
+                if (!success) continue; // 실패 시 다시 메뉴로 돌아가도록
             }
-            else if (selection == 4) {
+            else if (option == 4) {
                 cout << (ui->getLanguage() ? "Exiting ATM. Please take your card.\n" : "ATM을 종료합니다. 카드를 가져가세요.\n");
                 break; // 사용자 메뉴 종료
             }
@@ -945,6 +965,8 @@ public:
             }
         }
     }
+
+
 
     // 사용자 인증
     bool authenticateUser(Card& card) {
@@ -1637,7 +1659,7 @@ public:
     void display_history(string card_number) {
         if (card_number == "admin") {
             cout << "Transaction History Inquiry : Would you like to make an inquiry?\n거래 기록 조회 : 조회하시겠습니까?" << endl;
-            cout << "1. Yes\n2. no" << endl;
+            cout << "[y/N]" << endl;
             string select;
             cin >> select;
             if (select == "1") {
@@ -1651,7 +1673,6 @@ public:
                 string print;
                 cin >> print;
                 if (print == "1") {
-
                     ofstream file("TransactionHistory.txt");
 
                     if (!file) {
@@ -1662,7 +1683,6 @@ public:
                     file << "************Transaction History************" << endl;
 
                     for (int i = 0; i < num_of_transaction; i++) {
-
                         file << "-------------------------------------------" << endl;
                         file << "Transaction ID: " << transaction_records[i]->gettransactionID() << endl;
                         file << "Card Number: " << transaction_records[i]->getcardnumber() << endl;
@@ -1679,12 +1699,12 @@ public:
             else if (select == "2") {
                 cout << "Return to Main" << endl;
             }
-
         }
         else if (card_number == account->getCardNumber()) {
             transaction_records[num_of_transaction - 1]->display_one_transaction();
         }
     }
+
 
 };
 
@@ -1941,53 +1961,8 @@ int main() {
                 // 인증 성공 시 사용자 메뉴 호출
                 ui.clearScreen(); // 이전 화면 제거
                 cout << (ui.getLanguage() ? "Card authentication successful." : "카드 인증 성공.") << endl;
-
-                // 사용자 메뉴 출력
-                while (true) {
-                    ui.showWelcomeMessage();
-                    string userOption;
-                    cin >> userOption;
-                    if (cin.fail()) {
-                        cin.clear();
-                        cin.ignore(numeric_limits<streamsize>::max(), '\n');
-                        ui.showErrorMessage();
-                        continue;
-                    }
-
-                    if (userOption == "1") {
-                        // 입금 로직
-                        bool success = atm.deposit();
-                        if (!success) continue; // Welcome 화면으로 돌아가기
-                    }
-                    else if (userOption == "2") {
-                        // 출금 로직
-                        bool success = atm.withdraw();
-                        if (!success) continue;
-                    }
-                    else if (userOption == "3") {
-                        // 송금 로직
-                        bool success = atm.transfer();
-                        if (!success) continue;
-                    }
-                    else if (userOption == "4") {
-                        cout << (ui.getLanguage() ? "Exiting to main menu." : "메인 메뉴로 돌아갑니다.") << endl;
-                        break; // 사용자 메뉴 종료
-                    }
-                    else if (userOption == "/") {
-                        // 트랜잭션 히스토리 출력
-                        atm.display_history("admin");
-                        continue;
-                    }
-                    else if (userOption == "admin") {
-                        // 관리자 메뉴로 이동
-                        cout << (ui.getLanguage() ? "Moving to admin menu..." : "관리자 메뉴로 이동합니다.") << endl;
-                        continue;
-                    }
-                    else {
-                        cout << (ui.getLanguage() ? "Invalid option. Try again." : "잘못된 입력입니다. 다시 시도하세요.") << endl;
-                    }
-                }
-                break; // 카드 삽입 루프 종료
+                atm.userMenu();  // 사용자 메뉴 호출
+                break;
             }
         }
         else if (startSelection == 5) {  // 거래 내역 보기
