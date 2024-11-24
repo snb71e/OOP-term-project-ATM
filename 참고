@@ -1,0 +1,2434 @@
+#include <iostream>
+#include <vector>
+#include <fstream>
+#include <string>
+#include <iomanip>
+#include <csignal>
+using namespace std;
+
+class CARD;
+class USER;
+class ATM;
+class BANK;
+class ACCOUNT;
+class TRANSACTION;
+class ADMIN;
+bool isPrimary(ATM* atm, ACCOUNT* acc);
+int Validcheck(ATM* atm, ADMIN* admin, string bank_name, string card_num, string password);
+bool invalid_cin(istream& cin);
+void print_invalid_input(int a);
+void print_all_information(ADMIN* admin);
+void initializeFile(string& filename);
+
+//  ======================= USER ===========================
+
+class USER {
+private:
+    string User_name;
+    vector<ACCOUNT*> User_acc_list;
+    int User_acc_list_num = 0;
+
+public:
+    USER(string n);
+    string getName() { return User_name; };
+    vector<ACCOUNT*> get_acc_list() { return User_acc_list; };
+    ACCOUNT* getAccount(string acc_num);
+    void Print_acc_list();
+    void add_acc(ACCOUNT* a) { User_acc_list.push_back(a); };
+};
+
+//  ======================== ATM ===========================
+
+class ATM {
+private:
+    int SN; // serial number / 6자리
+    int SM; // single = 0 , multi = 1
+    BANK* own_bank;
+    int lan; // lan = 0 : 1개 언어 (영어) / lan = 1 : 2개 언어 (영어, 한국어)
+    long long ATM_money; // 잔고
+    int ATM_1000_num = 0;
+    int ATM_5000_num = 0;
+    int ATM_10000_num = 0;
+    int ATM_50000_num = 0;
+    string file_name = "";
+    int session_num = 0;
+public:
+    ATM(BANK* bank, int sn, int sm, int language, int money_1000, int money_5000, int money_10000, int money_50000);
+    int getSN() { return SN; };
+    int getSM() { return SM; };
+    int getlan() { return lan; };
+    BANK* getBank() { return own_bank; };
+    int getATM_Money_1000() { return ATM_1000_num; };
+    int getATM_Money_5000() { return ATM_5000_num; };
+    int getATM_Money_10000() { return ATM_10000_num; };
+    int getATM_Money_50000() { return ATM_50000_num; };
+    long long getATM_Money() { return ATM_money; };
+    void add_ATM_money(int tr_1000, int tr_5000, int tr_10000, int tr_50000);
+    void minus_ATM_money(int tr_1000, int tr_5000, int tr_10000, int tr_50000);
+    string getfile_name() { return file_name; }
+    int getsession_num() { return session_num; }
+    void increase_session() { session_num += 1; }
+};
+
+//  ======================= BANK ===========================
+
+class BANK {
+private:
+    string bank_name;
+    vector<ACCOUNT*> bank_acc_list;
+    vector<CARD*> bank_card_list;
+    vector<ATM*> bank_atm_list;
+    int bank_acc_list_num = 0;
+
+public:
+    BANK(string n);
+    string getName() { return bank_name; };
+    int getBankaccnum() { return bank_acc_list_num; };
+    vector<ACCOUNT*> getBankacclist() { return bank_acc_list; };
+    ACCOUNT* MakeAccount(USER* user, BANK* bank, string a_num, long long a_money, string a_pw, string c_num);
+    ATM* MakeATM(BANK* bank, int sn, int sm, int language, int money_1000, int money_5000, int money_10000, int money_50000);
+    void Add_card_list(CARD* card) { this->bank_card_list.push_back(card); };
+};
+
+//  ======================= CARD ===========================
+
+class CARD {
+private:
+    string card_num; //카드 번호
+    ACCOUNT* card_account; //카드와 연결된 계좌
+    string card_pw; //카드 비밀번호
+public:
+    CARD(ACCOUNT* account, string num, string pw);
+    string get_card_num() { return card_num; }
+    string get_card_pw() { return card_pw; }
+    ACCOUNT* get_card_acc() { return card_account; }
+};
+
+//  ====================== ACCOUNT =========================
+
+class ACCOUNT {
+private:
+    USER* Owner; //계좌주
+    BANK* Bank; //계좌 소유 은행
+    CARD* A_card; //계좌가 연결된 카드
+    string A_num; // 계좌번호(12자리)
+    long long A_money; //계좌 속 금액
+    string A_pw; //계좌 비밀번호(카드 비밀번호와 동일)
+public:
+    ACCOUNT(USER* user, BANK* bank, string a_num, long long a_money, string a_pw, string c_num);
+    string get_acc_num() { return A_num; }
+    long long get_acc_money() { return A_money; }
+    string get_acc_pw() { return A_pw; }
+    USER* get_owner() { return Owner; };
+    BANK* get_bank() { return Bank; };
+    CARD* get_card() { return A_card; }
+    void add_acc_money(long long mon, int lan);
+    void minus_acc_money(long long mon, int lan);
+};
+
+//  ===================== Transaction ======================
+class TRANSACTION {
+private:
+    string tr_id; // 거래 id
+    int tr_card;  // 카드번호
+    ATM* atm;
+    static int serial_num;
+public:
+    long long int tr_money; //입출금 금액
+    int tr_fee; //수수료
+    long long int tr_total; //수수료 포함한 거래금액
+    int tr_1000; //1000원권 수
+    int tr_5000; //5000원권 수
+    int tr_10000; //10000원권 수
+    int tr_50000; //50000원권 수
+    string session = "";
+    string session_atm = "";
+    string session_user = "";
+    int fee(int, int, ACCOUNT*, ACCOUNT*);
+    TRANSACTION(ATM* a);
+    int get_serial() { return serial_num; };
+    virtual void write(ATM*) = 0;
+};
+
+class TR_DEPOSIT : public TRANSACTION {
+private:
+    int tr_money_imsi;
+    int type;
+    int deposit_type;
+    string deposit_type_str;
+    char re;
+    int re_count = 0;
+public:
+    TR_DEPOSIT(USER* USER, ATM* ATM, ACCOUNT* ACC, CARD* CARD, int atm_language, int user_num);
+    void write(ATM*);
+    ~TR_DEPOSIT();
+};
+
+class TR_WITHDRAWAL : public TRANSACTION {
+private:
+    int type;
+    char re_str;
+public:
+    TR_WITHDRAWAL(USER* USER, ATM* ATM, ACCOUNT* ACC, CARD* CARD, int atm_language, int user_num);
+    ~TR_WITHDRAWAL();
+    int inputWithdrawalAmount_eng(ACCOUNT* ACC);
+    int inputWithdrawalAmount_kor(ACCOUNT* ACC);
+    bool valid(ATM* ATM, ACCOUNT* ACC);
+    void write(ATM*);
+};
+
+class TR_SEND_C : public TRANSACTION {
+private:
+    string get_bank;
+    string get_acc;
+    int type;
+    int deposit_type;
+    string deposit_type_str;
+    int fee_type;
+public:
+    TR_SEND_C(ADMIN* a, ATM* ATM, ACCOUNT* ACC, USER* USER, CARD* CARD, int atm_language, int user_num);
+    bool in_bank(ADMIN* a, string, string);
+    void write(ATM*);
+    ~TR_SEND_C();
+};
+
+class TR_SEND_A : public TRANSACTION {
+private:
+    string give_bank;
+    string give_acc;
+    string get_bank;
+    string get_acc;
+    long long int acc_money;
+    long long int atm_money;
+    int type;
+public:
+    bool check;
+    TR_SEND_A(ADMIN* a, ATM* ATM, ACCOUNT* ACC, USER* USER, CARD* CARD, int atm_language, int user_num);
+    bool valid(int, int, ATM* ATM, ACCOUNT* ACC);
+    bool in_bank(ADMIN* a, string, string);
+    void write(ATM*);
+    ~TR_SEND_A();
+};
+
+//  ======================== ADMIN ===========================
+
+class ADMIN {
+private:
+    vector<BANK*> bank_list;
+    vector<ACCOUNT*> acc_list;
+    vector<USER*> User_list;
+    vector<CARD*> card_list;
+    vector<ATM*> atm_list;
+
+public:
+    BANK* get_BANK(string n);
+    ACCOUNT* get_ACCOUNT(string n);
+    USER* get_USER(string n);
+    CARD* get_CARD(string n);
+    void add_bank(BANK* bank) { bank_list.push_back(bank); };
+    void add_acc(ACCOUNT* acc) { acc_list.push_back(acc); };
+    void add_user(USER* user) { User_list.push_back(user); };
+    void add_card(CARD* card) { card_list.push_back(card); };
+    void add_atm(ATM* atm) { atm_list.push_back(atm); };
+    vector<BANK*> get_bank_list() { return bank_list; };
+    vector<ACCOUNT*> get_acc_list() { return acc_list; };
+    vector<USER*> get_user_list() { return User_list; };
+    vector<CARD*> get_card_list() { return card_list; };
+    vector<ATM*> get_atm_list() { return atm_list; };
+};
+
+//  =================== USER Function ====================
+
+USER::USER(string n) {
+    User_name = n;
+    cout << User_name << " 이름의 유저가 생성되었습니다." << endl;
+};
+
+ACCOUNT* USER::getAccount(string acc_num) {
+    for (int i = 0; i < User_acc_list.size(); i++) {
+        if (User_acc_list[i]->get_acc_num() == acc_num) {
+            return User_acc_list[i];
+        };
+    };
+    cout << getName() << " does not have ACCOUNT(" << acc_num << ")" << endl;
+    return nullptr;
+};
+
+void USER::Print_acc_list() {
+    for (int i = 0; i < User_acc_list.size(); i++) {
+        cout << "┃ " << i + 1 << " : BANK : " << left << setw(23) << User_acc_list[i]->get_bank()->getName() + " " + User_acc_list[i]->get_acc_num() << "┃" << endl;
+    }
+};
+
+//  =================== BANK Function ====================
+
+BANK::BANK(string n) {
+    bank_name = n;
+    cout << bank_name << " 은행이 생성되었습니다." << endl;
+};
+
+ACCOUNT* BANK::MakeAccount(USER* user, BANK* bank, string a_num, long long a_money, string a_pw, string c_num) {
+    // Account 동적할당으로 생성 및 생성자 실행 => Bank 의 acc 리스트에 추가 + 유저의 리스트에 추가
+    ACCOUNT* acc = new ACCOUNT(user, bank, a_num, a_money, a_pw, c_num);
+    bank_acc_list.push_back(acc);
+    user->get_acc_list().push_back(acc);
+    return acc;
+};
+
+ATM* BANK::MakeATM(BANK* bank, int sn, int sm, int language, int money_1000, int money_5000, int money_10000, int money_50000) {
+    ATM* a = new ATM(this, sn, sm, language, money_1000, money_5000, money_10000, money_50000);
+    bank_atm_list.push_back(a);
+    return a;
+};
+
+//  =================== ATM Function ====================
+
+ATM::ATM(BANK* bank, int sn, int sm, int language, int money_1000, int money_5000, int money_10000, int money_50000) {
+    SN = sn;
+    SM = sm;
+    own_bank = bank;
+    lan = language;
+    ATM_1000_num = money_1000;
+    ATM_5000_num = money_5000;
+    ATM_10000_num = money_10000;
+    ATM_50000_num = money_50000;
+    ATM_money = money_1000 * 1000 + money_5000 * 5000 + money_10000 * 10000 + money_50000 * 50000;
+    file_name = to_string(SN) + "ATM.txt";
+    initializeFile(file_name);
+    cout << bank->getName() << " 은행의 ATM[SN :" << SN << ", remaining cash :" << ATM_money << "] 이 생성되었습니다." << endl;
+}
+
+void ATM::add_ATM_money(int tr_1000, int tr_5000, int tr_10000, int tr_50000) {
+    ATM_1000_num += tr_1000;
+    ATM_5000_num += tr_5000;
+    ATM_10000_num += tr_10000;
+    ATM_50000_num += tr_50000;
+    ATM_money = 1000 * ATM_1000_num + 5000 * ATM_5000_num + 10000 * ATM_10000_num + 50000 * ATM_50000_num;
+};
+
+void ATM::minus_ATM_money(int tr_1000, int tr_5000, int tr_10000, int tr_50000) {
+    ATM_1000_num -= tr_1000;
+    ATM_5000_num -= tr_5000;
+    ATM_10000_num -= tr_10000;
+    ATM_50000_num -= tr_50000;
+    ATM_money = 1000 * ATM_1000_num + 5000 * ATM_5000_num + 10000 * ATM_10000_num + 50000 * ATM_50000_num;
+};
+
+//  =================== CARD Function ====================
+
+CARD::CARD(ACCOUNT* account, string num, string pw) {
+    card_account = account;
+    card_num = num;
+    card_pw = pw;
+    account->get_bank()->Add_card_list(this);
+    cout << account->get_acc_num() << " 계좌의 카드가 생성되었습니다." << endl;
+}
+
+//  =================== ACCOUNT Funtion=====================
+
+ACCOUNT::ACCOUNT(USER* user, BANK* bank, string a_num, long long a_money, string a_pw, string c_num) {
+    Owner = user;
+    Bank = bank;
+    A_num = a_num;
+    A_money = a_money;
+    A_pw = a_pw;
+    cout << this->get_acc_num() << " 계좌가 생성되었습니다." << endl;
+    A_card = new CARD(this, c_num, a_pw); //계좌가 만들어지면 계좌와 연결된 카드 객체를 동적할당으로 생성, c_num은 임의의 카드숫자(1111,2222,3333) 이런식으로 할 예정
+}
+void ACCOUNT::add_acc_money(long long mon, int lan) {
+    A_money = A_money + mon;
+    if (lan == 2) {
+        cout << this->get_acc_num() << " 계좌로 " << mon << "원이 입금되어 총 " << A_money << "원이 들어있습니다." << endl;
+    }
+    else if (lan == 1) {
+        cout << mon << "won has been added into Account " << this->get_acc_num() << " and there is a total of " << A_money << "won in the account." << endl;
+    }
+};
+
+void ACCOUNT::minus_acc_money(long long mon, int lan) {
+    A_money = A_money - mon;
+    if (lan == 2) {
+        cout << this->get_acc_num() << " 계좌에서 " << mon << "원이 출금되어 총 " << A_money << "원이 들어있습니다." << endl;
+    }
+    else if (lan == 1) {
+        cout << mon << "won has been withdrawn from Account " << this->get_acc_num() << " and there is a total of " << A_money << "won in the account." << endl;
+    }
+}
+
+//  =============== Transaction Funtion ===============
+int TRANSACTION::serial_num = 0;
+
+void initializeFile(string& filename) {
+    ofstream writeFile(filename, ofstream::trunc); // "trunc" 모드로 파일 열기 (기존 내용 삭제)
+    if (writeFile.is_open()) {
+        writeFile.close();
+    }
+    else {
+        cerr << "Error: Unable to open the file for initialization." << endl;
+    }
+}
+
+TRANSACTION::TRANSACTION(ATM* a) {
+    atm = a;
+    serial_num += 1;
+    atm->increase_session();
+}
+
+int TRANSACTION::fee(int type, int money, ACCOUNT* senderAccount, ACCOUNT* receiverAccount) {
+    switch (type) {
+    case 0:
+        if (isPrimary(atm, senderAccount)) // 주거래 은행이라면, isPrimary()는 주거래 은행여부를 판단하는 bool함수
+            return 0;
+        else
+            return 1000; // 비주거래 은행이라면
+    case 1:
+        if (isPrimary(atm, senderAccount)) // 주거래 은행이라면
+            return 1000;
+        else
+            return 2000; // 비주거래 은행이라면
+    case 2:
+        return 5000; // 현금 계좌이체
+    case 3:
+        if (senderAccount && isPrimary(atm, senderAccount) && receiverAccount && isPrimary(atm, receiverAccount)) // 주거래 간 계좌이체
+            return 2000;
+        else if ((senderAccount && isPrimary(atm, senderAccount)) || (receiverAccount && isPrimary(atm, receiverAccount))) // 주거래/비주거래 간 계좌이체
+            return 3000;
+        else
+            return 4000; // 비주거래 간 계좌이체
+    default:
+        return -1; // 예외 처리: 알 수 없는 타입일 경우
+    }
+};
+
+TR_DEPOSIT::~TR_DEPOSIT() {
+    if (session != "") {
+        ofstream writeFile; // 쓸 목적의 파일 선언
+        writeFile.open("Transaction History.txt", ios::app); // "추가 모드"로 파일 열기
+        if (writeFile.is_open()) { // 파일이 열렸는지 확인
+            writeFile << session << endl; // 내용을 추가
+        }
+        writeFile.close(); // 파일 닫기
+        writeFile.open("USER.txt", ios::app); // "추가 모드"로 파일 열기
+        if (writeFile.is_open()) { // 파일이 열렸는지 확인
+            writeFile << session_user << endl; // 내용을 추가
+        }
+        writeFile.close(); // 파일 닫기
+    }
+}
+
+void TR_DEPOSIT::write(ATM* ATM) {
+    ofstream writeFile(ATM->getfile_name(), ios::app);
+    if (writeFile.is_open()) {
+        writeFile << session_atm << endl;
+    }
+}
+
+TR_DEPOSIT::TR_DEPOSIT(USER* USER, ATM* ATM, ACCOUNT* ACC, CARD* CARD, int atm_language, int user_num) : TRANSACTION(ATM) {
+    if (atm_language == 1) {
+        cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+        cout << "┃ Please select the deposit type: Check deposit[1] or Cash deposit[2] (Enter 1 or 2). ┃" << endl;
+        cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> " << endl;
+    }
+    else {
+        cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+        cout << "┃ 수표입금[1], 현금입금[2] 중 입금유형을 선택해주세요 (1 또는 2 입력). ┃" << endl;
+        cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> " << endl;
+    }
+    cin >> deposit_type;
+    if (deposit_type == -1) { return; }
+    if (atm_language == 1)
+    {
+        if (deposit_type == 1) {
+            do {
+                do {
+                    cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+                    cout << "┃ Please deposit the check. ┃" << endl;
+                    cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━┛" << endl;
+                    cin >> tr_money_imsi;
+                    if (tr_money_imsi == -1) { return; }
+                    if (tr_money_imsi < 100000) {
+                        cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+                        cout << "┃ The amount of the check is not valid (under 100,000 won). Please deposit again. ┃" << endl;
+                        cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+                    }
+                } while (tr_money_imsi < 100000);
+                tr_money += tr_money_imsi;
+                cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+                cout << "┃ Do you want to deposit more checks? Note that 30 times is the maximum limit. (Y/N) ┃" << endl;
+                cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛";
+                cin >> re;
+                if (re == -1) { return; }
+                re_count++;
+                cout << "Current check deposit status (" << re_count << "/30)" << endl;
+                if (re_count == 30) { return; }
+            } while (re == 'Y' or re == 'y');
+        }
+        else {
+            do {
+                cout << "┏━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+                cout << "┃ Starting cash deposit ┃" << endl;
+                cout << "┗━━━━━━━━━━━━━━━━━━━━━━━┛\n> " << endl;
+                cout << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" << endl;
+                cout << " Number of 1,000 won bills: ";
+                cin >> tr_1000;
+                if (tr_1000 == -1) { return; }
+                cout << " Number of 5,000 won bills: ";
+                cin >> tr_5000;
+                if (tr_5000 == -1) { return; }
+                cout << " Number of 10,000 won bills: ";
+                cin >> tr_10000;
+                if (tr_10000 == -1) { return; }
+                cout << " Number of 50,000 won bills: ";
+                cin >> tr_50000;
+                if (tr_50000 == -1) { return; }
+                cout << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n> " << endl;
+                if (tr_1000 + tr_5000 + tr_10000 + tr_50000 > 50) {
+                    cout << "Cash count cannot exceed 50. Current number of deposited bills: " << tr_1000 + tr_5000 + tr_10000 + tr_50000 << endl;
+                }
+            } while (tr_1000 + tr_5000 + tr_10000 + tr_50000 > 50);
+            tr_money = tr_1000 * 1000 + tr_5000 * 5000 + tr_10000 * 10000 + tr_50000 * 50000;
+        }
+        tr_fee = fee(0, tr_money, ACC, nullptr); // 입금한 금액과 계좌 연결 후 수수료 계산
+        tr_total = tr_money + tr_fee;
+        if (deposit_type == 1) {
+            cout << "The total deposit is " << tr_money << " won, and the fee is " << tr_fee << " won. Therefore, the additional amount you need to deposit is " << tr_fee << " won." << endl;
+            ATM->add_ATM_money(tr_fee / 1000, 0, 0, 0);
+        }
+        else {
+            cout << "The total deposit is " << tr_money << " won, and the fee is " << tr_fee << " won. Therefore, the total amount you need to deposit is " << tr_total << " won." << endl;
+            ATM->add_ATM_money(tr_1000 + tr_fee / 1000, tr_5000, tr_10000, tr_50000); // 현금대로 ATM에 입금 금액 추가
+        }
+        ACC->add_acc_money(tr_money, atm_language); // 수수료를 뺀 금액을 계좌에 입금
+        cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+        cout << "┃                      Deposit completed.                   ┃" << endl;
+        cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛" << endl;
+        if (deposit_type == 1) { deposit_type_str = "Check"; }
+        else { deposit_type_str = "Cash"; }
+        session = "[Transaction ID: " + to_string(get_serial()) + ", Card Number: " + CARD->get_card_num() + ", Transaction Type: Deposit, Amount: " + to_string(tr_total) + ", Deposit Type: " + deposit_type_str + ", Used ATM: " + ATM->getBank()->getName() + "/" + to_string(ATM->getSN()) + ", Account Owner: " + ACC->get_owner()->getName() + ", Account Bank: " + ACC->get_bank()->getName() + ", Account Number: " + ACC->get_acc_num() + "]";
+        session_atm = "[Transaction ID: " + to_string(ATM->getsession_num()) + ", Card Number: " + CARD->get_card_num() + ", Transaction Type: Deposit, Amount: " + to_string(tr_total) + ", Deposit Type: " + deposit_type_str + ", Used ATM: " + ATM->getBank()->getName() + "/" + to_string(ATM->getSN()) + ", Account Owner: " + ACC->get_owner()->getName() + ", Account Bank: " + ACC->get_bank()->getName() + ", Account Number: " + ACC->get_acc_num() + "]";
+        write(ATM);
+        session_user = "[Transaction ID: " + to_string(user_num) + ", Card Number: " + CARD->get_card_num() + ", Transaction Type: Deposit, Amount: " + to_string(tr_total) + ", Deposit Type: " + deposit_type_str + ", Used ATM: " + ATM->getBank()->getName() + "/" + to_string(ATM->getSN()) + ", Account Owner: " + ACC->get_owner()->getName() + ", Account Bank: " + ACC->get_bank()->getName() + ", Account Number: " + ACC->get_acc_num() + "]";
+    }
+    else {
+        if (deposit_type == 1) {
+            do {
+                do {
+                    cout << "┏━━━━━━━━━━━━━━━━━━━━┓" << endl;
+                    cout << "┃ 수표입금을 시작하겠습니다 ┃" << endl;
+                    cout << "┗━━━━━━━━━━━━━━━━━━━━┛\n> " << endl;
+                    cin >> tr_money_imsi;
+                    if (tr_money_imsi == -1) { return; }
+                    if (tr_money_imsi < 100000) {
+                        cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+                        cout << "┃ 10만원 이하의 금액은 수표가 아닙니다. 다시 입금해주세요 ┃" << endl;
+                        cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> " << endl;
+                    }
+                } while (tr_money_imsi < 100000);
+                tr_money += tr_money_imsi;
+                cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+                cout << "┃ 수표를 더 입금하시겠습니까? 참고로, 30회가 최대 횟수입니다 (Y/N) ┃" << endl;
+                cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+                cin >> re;
+                if (re == -1) { return; }
+                re_count++;
+                cout << "현재 입금한 수표 수 현황 (" << re_count << "/30)" << endl;
+                if (re_count == 30) { return; }
+            } while (re == 'Y' or re == 'y');
+        }
+        else {
+            do {
+                tr_money = 0;
+                cout << "┏━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+                cout << "┃ 현금 입금을 시작하겠습니다 ┃" << endl;
+                cout << "┗━━━━━━━━━━━━━━━━━━━━━┛\n> " << endl;
+                cout << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" << endl;
+                cout << " 1,000원 지폐 수 : ";
+                cin >> tr_1000;
+                if (tr_1000 == -1) { return; }
+                cout << " 5,000원 지폐 수 : ";
+                cin >> tr_5000;
+                if (tr_5000 == -1) { return; }
+                cout << "10,000원 지폐 수 : ";
+                cin >> tr_10000;
+                if (tr_10000 == -1) { return; }
+                cout << "50,000원 지폐 수 : ";
+                cin >> tr_50000;
+                if (tr_50000 == -1) { return; }
+                cout << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n> " << endl;
+                if (tr_1000 + tr_5000 + tr_10000 + tr_50000 > 50) {
+                    cout << "현금 개수가 50개를 넘을 수 없습니다. 현재 입금한 지폐 수: " << tr_1000 + tr_5000 + tr_10000 + tr_50000 << endl;
+                }
+                tr_money = tr_1000 * 1000 + tr_5000 * 5000 + tr_10000 * 10000 + tr_50000 * 50000;
+            } while (tr_1000 + tr_5000 + tr_10000 + tr_50000 > 50);
+        }
+        if (tr_money != 0) {
+            tr_fee = fee(0, tr_money, ACC, nullptr); // 입금한 금액과 계좌 연결 후 수수료 계산
+            tr_total = tr_money + tr_fee;
+            if (deposit_type == 1) {
+                cout << "총 입금액은 " << tr_money << "원 이며, 수수료는 " << tr_fee << "원 이므로 추가로 입금해야하실 금액은 " << tr_fee << "원 입니다." << endl;
+                ATM->add_ATM_money(tr_fee / 1000, 0, 0, 0);
+            }
+            else {
+                cout << "총 입금액은 " << tr_money << "원 이며, 수수료는 " << tr_fee << "원 이므로 입금해야하실 금액은 " << tr_total << "원 입니다." << endl;
+                ATM->add_ATM_money(tr_1000 + tr_fee / 1000, tr_5000, tr_10000, tr_50000); // 현금대로 ATM에 입금 금액 추가
+            }
+
+            ACC->add_acc_money(tr_money, atm_language); // 수수료를 뺀 금액을 계좌에 입금
+            cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+            cout << "┃                      입금이 완료되었습니다.                     ┃" << endl;
+            cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛" << endl;
+            if (deposit_type == 1) { deposit_type_str = "수표 입금"; }
+            else { deposit_type_str = "현금 입금"; }
+            session = "[거래 ID: " + to_string(get_serial()) + ", 카드번호: " + CARD->get_card_num() + ", 거래유형: 입금, 금액: " + to_string(tr_total) + ", 입금 유형: " + deposit_type_str + ", 사용중인 ATM: " + ATM->getBank()->getName() + "/" + to_string(ATM->getSN()) + ", 계좌주: " + ACC->get_owner()->getName() + ", 계좌 은행명: " + ACC->get_bank()->getName() + ", 계좌 번호: " + ACC->get_acc_num();
+            session_atm = "[거래 ID: " + to_string(ATM->getsession_num()) + ", 카드번호: " + CARD->get_card_num() + ", 거래유형: 입금, 금액: " + to_string(tr_total) + ", 입금 유형: " + deposit_type_str + ", 사용중인 ATM: " + ATM->getBank()->getName() + "/" + to_string(ATM->getSN()) + ", 계좌주: " + ACC->get_owner()->getName() + ", 계좌 은행명: " + ACC->get_bank()->getName() + ", 계좌 번호: " + ACC->get_acc_num();
+            write(ATM);
+            session_user = "[거래 ID: " + to_string(user_num) + ", 카드번호: " + CARD->get_card_num() + ", 거래유형: 입금, 금액: " + to_string(tr_total) + ", 입금 유형: " + deposit_type_str + ", 사용중인 ATM: " + ATM->getBank()->getName() + "/" + to_string(ATM->getSN()) + ", 계좌주: " + ACC->get_owner()->getName() + ", 계좌 은행명: " + ACC->get_bank()->getName() + ", 계좌 번호: " + ACC->get_acc_num();
+        }
+    }
+}
+
+bool TR_WITHDRAWAL::valid(ATM* ATM, ACCOUNT* ACC) {
+    if (ATM->getATM_Money_1000() >= tr_1000 && ATM->getATM_Money_5000() >= tr_5000 && ATM->getATM_Money_10000() >= tr_10000 && ATM->getATM_Money_50000() >= tr_50000 && ACC->get_acc_money() >= tr_total) {
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+
+TR_WITHDRAWAL::~TR_WITHDRAWAL() {
+    if (session != "")
+    {
+        ofstream writeFile; // 쓸 목적의 파일 선언
+        writeFile.open("Transaction History.txt", ios::app); // "추가 모드"로 파일 열기
+        if (writeFile.is_open()) { // 파일이 열렸는지 확인
+            writeFile << session << endl; // 내용을 추가
+        }
+        writeFile.close(); // 파일 닫기
+        writeFile.open("USER.txt", ios::app);
+        if (writeFile.is_open()) {
+            writeFile << session_user << endl;
+        }
+        writeFile.close();
+    }
+}
+void TR_WITHDRAWAL::write(ATM* ATM) {
+    ofstream writeFile(ATM->getfile_name(), ios::app);
+    if (writeFile.is_open()) {
+        writeFile << session_atm << endl;
+    }
+}
+
+TR_WITHDRAWAL::TR_WITHDRAWAL(USER* USER, ATM* ATM, ACCOUNT* ACC, CARD* CARD, int atm_language, int user_num) : TRANSACTION(ATM) {
+    if (atm_language == 1) {
+        do {
+            cout << "Please enter the withdrawal amount." << endl;
+            if (inputWithdrawalAmount_eng(ACC) == 0) { return; }
+            if (tr_money > 500000) { cout << "Attempting to withdraw an amount greater than the maximum withdrawal limit of 500,000 won." << endl; }
+        } while (tr_money > 500000);
+    }
+    else if (atm_language == 2) {
+        do {
+            cout << "출금하실 돈을 입력해주세요." << endl;
+            if (inputWithdrawalAmount_kor(ACC) == 0) {
+                return;
+            }
+            if (tr_money > 500000) { cout << "최대 인출금액인 500000원보다 큰 금액 인출시도입니다." << endl; }
+        } while (tr_money > 500000);
+    }
+    while (!valid(ATM, ACC)) {
+        if (atm_language == 1) {
+            cout << "You entered the withdrawal amount incorrectly. Please enter it again. (Reason: Insufficient cash of account/ATM)" << endl;
+            if (inputWithdrawalAmount_eng(ACC) == 0) { return; }
+        }
+        else if (atm_language == 2) {
+            cout << "출금하실 돈을 잘못 입력하셨습니다. 다시 입력해주세요.(이유:ATM 현금/계좌 잔액 부족)" << endl;
+            if (inputWithdrawalAmount_kor(ACC) == 0) { return; }
+        }
+    }
+    if (atm_language == 1) {
+        cout << "The total ATM withdrawal amount is " << tr_money << " won, and the fee is " << tr_fee << " won, so the amount to be withdrawn from the account is " << tr_total << " won." << endl;
+        session = "[Transaction ID : " + to_string(get_serial()) + ", Card Number : " + CARD->get_card_num() + ", Transaction Type : Withdrawal, Amount : " + to_string(tr_money) + ", Used ATM : " + ATM->getBank()->getName() + " / " + to_string(ATM->getSN()) + ", Account Owner : " + ACC->get_owner()->getName() + ", Account Number : " + ACC->get_acc_num() + "]";
+        session_atm = "[Transaction ID: " + to_string(ATM->getsession_num()) + ", Card Number: " + CARD->get_card_num() + ", Transaction Type: Withdrawal, Amount: " + to_string(tr_money) + ", Used ATM: " + ATM->getBank()->getName() + "/" + to_string(ATM->getSN()) + ", Account Owner: " + ACC->get_owner()->getName() + ", Account Number: " + ACC->get_acc_num() + "]";
+        session_user = "[Transaction ID: " + to_string(user_num) + ", Card Number: " + CARD->get_card_num() + ", Transaction Type: Withdrawal, Amount: " + to_string(tr_money) + ", Used ATM: " + ATM->getBank()->getName() + "/" + to_string(ATM->getSN()) + ", Account Owner: " + ACC->get_owner()->getName() + ", Account Number: " + ACC->get_acc_num() + "]";
+    }
+    else if (atm_language == 2) {
+        cout << "총 ATM 출금액은 " << tr_money << "원 이며, 수수료는 " << tr_fee << "원 이므로 계좌에서 출금되실 금액은 " << tr_total << "원 입니다." << endl;
+        session = "[거래 ID : " + to_string(get_serial()) + ", 카드번호 : " + CARD->get_card_num() + ", 거래유형 : 출금, 금액 : " + to_string(tr_money) + ", 사용중인 ATM: " + ATM->getBank()->getName() + "/" + to_string(ATM->getSN()) + ", 계좌주: " + ACC->get_owner()->getName() + +", 계좌 번호 : " + ACC->get_acc_num() + "]";
+        session_atm = "[거래 ID : " + to_string(ATM->getsession_num()) + ", 카드번호 : " + CARD->get_card_num() + ", 거래유형 : 출금, 금액 : " + to_string(tr_money) + ", 사용중인 ATM: " + ATM->getBank()->getName() + "/" + to_string(ATM->getSN()) + ", 계좌주: " + ACC->get_owner()->getName() + +", 계좌 번호 : " + ACC->get_acc_num() + "]";
+        session_user = "[거래 ID : " + to_string(user_num) + ", 카드번호 : " + CARD->get_card_num() + ", 거래유형 : 출금, 금액 : " + to_string(tr_money) + ", 사용중인 ATM: " + ATM->getBank()->getName() + "/" + to_string(ATM->getSN()) + ", 계좌주: " + ACC->get_owner()->getName() + +", 계좌 번호 : " + ACC->get_acc_num() + "]";
+    }
+    ATM->minus_ATM_money(tr_1000, tr_5000, tr_10000, tr_50000);
+    ACC->minus_acc_money(tr_total, atm_language);
+    write(ATM);
+}
+int TR_WITHDRAWAL::inputWithdrawalAmount_eng(ACCOUNT* ACC) {
+    cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+    cout << "┃ Please enter the amount you want to withdraw.  ┃" << endl;
+    cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> " << endl;
+    cout << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" << endl;
+    cout << " Number of 1,000 won bills: ";
+    cin >> tr_1000;
+    if (tr_1000 == -1) { return 0; }
+    cout << " Number of 5,000 won bills: ";
+    cin >> tr_5000;
+    if (tr_5000 == -1) { return 0; }
+    cout << " Number of 10,000 won bills: ";
+    cin >> tr_10000;
+    if (tr_10000 == -1) { return 0; }
+    cout << " Number of 50,000 won bills: ";
+    cin >> tr_50000;
+    if (tr_50000 == -1) { return 0; }
+    cout << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n> " << endl;
+    tr_money = tr_1000 * 1000 + tr_5000 * 5000 + tr_10000 * 10000 + tr_50000 * 50000;
+    tr_fee = fee(1, tr_money, ACC, nullptr);
+    tr_total = tr_money + tr_fee;
+    return 999;
+}
+
+int TR_WITHDRAWAL::inputWithdrawalAmount_kor(ACCOUNT* ACC) {
+    cout << "┏━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+    cout << "┃ 현금 출금을 시작하겠습니다 ┃" << endl;
+    cout << "┗━━━━━━━━━━━━━━━━━━━━━┛\n> " << endl;
+    cout << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" << endl;
+    cout << " 1,000원 지폐 수 : ";
+    cin >> tr_1000;
+    if (tr_1000 == -1) { return 0; }
+    cout << " 5,000원 지폐 수 : ";
+    cin >> tr_5000;
+    if (tr_5000 == -1) { return 0; }
+    cout << "10,000원 지폐 수 : ";
+    cin >> tr_10000;
+    if (tr_10000 == -1) { return 0; }
+    cout << "50,000원 지폐 수 : ";
+    cin >> tr_50000;
+    if (tr_50000 == -1) { return 0; }
+    cout << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n> " << endl;
+    tr_money = tr_1000 * 1000 + tr_5000 * 5000 + tr_10000 * 10000 + tr_50000 * 50000;
+    tr_fee = fee(1, tr_money, ACC, nullptr);
+    tr_total = tr_money + tr_fee;
+    return 999;
+}
+
+bool TR_SEND_C::in_bank(ADMIN* a, string bank, string acc) { //은행명과 계좌 있는지 조회
+    unsigned long size_bl = a->get_bank_list().size();
+    for (int i = 0; i < size_bl; i++) {
+        if (a->get_bank_list()[i]->getName() == bank) {
+            BANK* f_bank = a->get_bank_list()[i];
+            unsigned long size_al = f_bank->getBankacclist().size();
+            for (int j = 0; j < size_al; j++) {
+                if (f_bank->getBankacclist()[j]->get_acc_num() == acc) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+    return false;
+}
+
+TR_SEND_C::~TR_SEND_C() {
+    if (session != "") {
+        ofstream writeFile; // 쓸 목적의 파일 선언
+        writeFile.open("Transaction History.txt", ios::app); // "추가 모드"로 파일 열기
+        if (writeFile.is_open()) { // 파일이 열렸는지 확인
+            writeFile << session << endl; // 내용을 추가
+        }
+        writeFile.close(); // 파일 닫기
+        writeFile.open("USER.txt", ios::app);
+        if (writeFile.is_open()) {
+            writeFile << session_user << endl;
+        }
+        writeFile.close();
+    }
+}
+
+void TR_SEND_C::write(ATM* ATM) {
+    ofstream writeFile(ATM->getfile_name(), ios::app);
+    if (writeFile.is_open()) {
+        writeFile << session_atm << endl;
+    }
+}
+
+TR_SEND_C::TR_SEND_C(ADMIN* a, ATM* ATM, ACCOUNT* ACC, USER* USER, CARD* CARD, int atm_language, int user_num) : TRANSACTION(ATM) {
+    if (atm_language == 1)
+    {
+        do {
+            cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+            cout << "┃ Please enter the bank you want to send (bank name of the receiving account). ┃" << endl;
+            cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> " << endl;
+            cin >> get_bank;
+            if (get_bank == "-1") { return; }
+            cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+            cout << "┃ Please enter the account of the bank you want to send (receiving account). ┃" << endl;
+            cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> " << endl;
+            cin >> get_acc;
+            if (get_acc == "-1") { return; }
+            if (!in_bank(a, get_bank, get_acc)) {
+                cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+                cout << "┃ The entered bank name and account are not found. Please enter again. ┃" << endl;
+                cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> " << endl;
+            }
+        } while (!in_bank(a, get_bank, get_acc));
+        cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+        cout << "┃ Deposit type: Check[1], Cash[2]. Please enter the deposit type (1 or 2). ┃" << endl;
+        cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> " << endl;
+        cin >> deposit_type;
+        if (deposit_type == -1) { return; }
+        if (deposit_type == 1) {
+            do {
+                cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+                cout << "┃ Please enter the check. ┃" << endl;
+                cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> " << endl;
+                cin >> tr_money;
+                if (tr_money == -1) { return; }
+                if (tr_money < 100000) {
+                    cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+                    cout << "┃ The amount of check is not valid (Under 100,000 won). Please deposit again. ┃" << endl;
+                    cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> " << endl;
+
+                }
+            } while (tr_money < 100000);
+        }
+        else {
+            cout << "┏━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+            cout << "┃ Starting cash deposit ┃" << endl;
+            cout << "┗━━━━━━━━━━━━━━━━━━━━━━━┛\n> " << endl;
+            cout << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" << endl;
+            cout << " Number of 1,000 won bills: ";
+            cin >> tr_1000;
+            if (tr_1000 == -1) { return; }
+            cout << " Number of 5,000 won bills: ";
+            cin >> tr_5000;
+            if (tr_5000 == -1) { return; }
+            cout << " Number of 10,000 won bills: ";
+            cin >> tr_10000;
+            if (tr_10000 == -1) { return; }
+            cout << " Number of 50,000 won bills: ";
+            cin >> tr_50000;
+            if (tr_50000 == -1) { return; }
+            cout << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n> " << endl;
+            tr_money = tr_1000 * 1000 + tr_5000 * 5000 + tr_10000 * 10000 + tr_50000 * 50000;
+        }
+        tr_fee = fee(2, tr_money, nullptr, nullptr);
+        tr_total = tr_money + tr_fee;
+        if (deposit_type == 1) {
+            cout << "The total deposit amount is " << tr_money << " won, and the fee is " << tr_fee << " won, so the additional amount you need to deposit is " << tr_fee << " won." << endl;
+            cout << "Please choose the fee deposit method [1]: 5 bills of 1,000 won, [2]: 1 bill of 5,000 won (1/2)" << endl;
+            cin >> fee_type;
+            if (fee_type == -1) { return; }
+            if (fee_type == 1) {
+                ATM->add_ATM_money(5, 0, 0, 0);
+            }
+            else {
+                ATM->add_ATM_money(0, 1, 0, 0);
+            }
+            cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+            cout << "┃                      Deposit completed.                   ┃" << endl;
+            cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛" << endl;
+        }
+        else {
+            cout << "The total deposit amount is " << tr_money << " won, and the fee is " << tr_fee << " won, so the amount you need to deposit is " << tr_total << " won." << endl;
+            cout << "Please choose the fee deposit method [1]: 5 bills of 1,000 won, [2]: 1 bill of 5,000 won (1/2)" << endl;
+            cin >> fee_type;
+            if (fee_type == -1) { return; }
+            if (fee_type == 1) {
+                ATM->add_ATM_money(tr_1000 + 5, tr_5000, tr_10000, tr_50000);
+            }
+            else {
+                ATM->add_ATM_money(tr_1000, tr_5000 + 1, tr_10000, tr_50000);
+            }
+            cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+            cout << "┃                      Deposit completed.                   ┃" << endl;
+            cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛" << endl;
+        }
+        a->get_ACCOUNT(get_acc)->add_acc_money(tr_money, atm_language); // 수수료를 뺀 금액을 계좌에 입금
+        cout << "┏━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+        cout << "┃ Transfer completed. ┃" << endl;
+        cout << "┗━━━━━━━━━━━━━━━━━━━━━┛" << endl;
+        if (deposit_type == 1) { deposit_type_str = "Check"; }
+        else { deposit_type_str = "Cash"; }
+        session = "[Transaction ID: " + to_string(get_serial()) + ", Card Number: " + CARD->get_card_num() + ", Transaction Type: Cash Transfer, Amount: " + to_string(tr_total) + ", Receiving Account Information: " + ACC->get_bank()->getName() + "/" + ACC->get_owner()->getName() + ", Account Number: " + ACC->get_acc_num() + ", Transfer Type: " + deposit_type_str + ", Used ATM: " + ATM->getBank()->getName() + "/" + to_string(ATM->getSN()) + "]";
+        session_atm = "[Transaction ID: " + to_string(ATM->getsession_num()) + ", Card Number: " + CARD->get_card_num() + ", Transaction Type: Cash Transfer, Amount: " + to_string(tr_total) + ", Receiving Account Information: " + ACC->get_bank()->getName() + "/" + ACC->get_owner()->getName() + ", Account Number: " + ACC->get_acc_num() + ", Transfer Type: " + deposit_type_str + ", Used ATM: " + ATM->getBank()->getName() + "/" + to_string(ATM->getSN()) + "]";
+        write(ATM);
+        session_user = "[Transaction ID: " + to_string(user_num) + ", Card Number: " + CARD->get_card_num() + ", Transaction Type: Cash Transfer, Amount: " + to_string(tr_total) + ", Receiving Account Information: " + ACC->get_bank()->getName() + "/" + ACC->get_owner()->getName() + ", Account Number: " + ACC->get_acc_num() + ", Transfer Type: " + deposit_type_str + ", Used ATM: " + ATM->getBank()->getName() + "/" + to_string(ATM->getSN()) + "]";
+    }
+    else if (atm_language == 2)
+    {
+        do {
+            cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+            cout << "┃ 보내시려는 은행을 입력해주세요(받는 계좌의 은행명) ┃" << endl;
+            cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> " << endl;
+            cin >> get_bank;
+            if (get_bank == "-1") { return; }
+            cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+            cout << "┃ 보내시려는 은행의 계좌 번호를 입력해주세요(받는 계좌) ┃" << endl;
+            cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> " << endl;
+            cin >> get_acc;
+            if (get_acc == "-1") { return; }
+            if (!in_bank(a, get_bank, get_acc)) {
+                cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+                cout << "┃ 입력된 은행명과 계좌가 올바르지 않습니다. 다시 입력해 주십시오. ┃" << endl;
+                cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> " << endl;
+            }
+        } while (!in_bank(a, get_bank, get_acc));
+        cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+        cout << "┃ 수표입금[1], 현금입금[2] 중 입금유형을 알려주세요(1 or 2) ┃" << endl;
+        cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> " << endl;
+        cin >> deposit_type;
+        if (deposit_type == -1) { return; }
+        if (deposit_type == 1) {
+            do {
+                cout << "┏━━━━━━━━━━━━━━━━┓" << endl;
+                cout << "┃ 수표를 입금해주세요 ┃" << endl;
+                cout << "┗━━━━━━━━━━━━━━━━┛\n> " << endl;
+                cin >> tr_money;
+                if (tr_money == -1) { return; }
+                if (tr_money < 100000) {
+                    cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+                    cout << "┃ 수표 금액이 올바르지 않습니다(10만원 이하). 다시 입력해 주십시오. ┃" << endl;
+                    cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> " << endl;
+                }
+            } while (tr_money < 100000);
+        }
+        else {
+            cout << "┏━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+            cout << "┃ 현금 입금을 시작하겠습니다 ┃" << endl;
+            cout << "┗━━━━━━━━━━━━━━━━━━━━━┛\n> " << endl;
+            cout << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" << endl;
+            cout << " 1,000원 지폐 수 : ";
+            cin >> tr_1000;
+            if (tr_1000 == -1) { return; }
+            cout << " 5,000원 지폐 수 : ";
+            cin >> tr_5000;
+            if (tr_5000 == -1) { return; }
+            cout << "10,000원 지폐 수 : ";
+            cin >> tr_10000;
+            if (tr_10000 == -1) { return; }
+            cout << "50,000원 지폐 수 : ";
+            cin >> tr_50000;
+            if (tr_50000 == -1) { return; }
+            cout << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n> " << endl;
+
+            tr_money = tr_1000 * 1000 + tr_5000 * 5000 + tr_10000 * 10000 + tr_50000 * 50000;
+        }
+        tr_fee = fee(2, tr_money, nullptr, nullptr);
+        tr_total = tr_money + tr_fee;
+        if (deposit_type == 1) {
+            cout << "총 입금액은 " << tr_money << "원 이며, 수수료는 " << tr_fee << "원 이므로 추가로 입금해야하실 금액은 " << tr_fee << "원 입니다." << endl;
+            cout << "수수료 입금 방법을 선택해주세요 [1]: 1000원 권 5장, 2: 5000원 권 1장 (1/2)" << endl;
+            cin >> fee_type;
+            if (fee_type == -1) { return; }
+            if (fee_type == 1) {
+                ATM->add_ATM_money(5, 0, 0, 0);
+            }
+            else {
+                ATM->add_ATM_money(0, 1, 0, 0);
+            }
+            cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+            cout << "┃                      입금이 완료되었습니다.                     ┃" << endl;
+            cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛" << endl;
+        }
+        else {
+            cout << "총 입금액은 " << tr_money << "원 이며, 수수료는 " << tr_fee << "원 이므로 입금해야하실 금액은 " << tr_total << "원 입니다." << endl;
+            cout << "수수료 입금 방법을 선택해주세요 [1]: 1000원 권 5장, 2: 5000원 권 1장 (1/2)" << endl;
+            cin >> fee_type;
+            if (fee_type == -1) { return; }
+            if (fee_type == 1) {
+                ATM->add_ATM_money(tr_1000 + 5, tr_5000, tr_10000, tr_50000);
+            }
+            else {
+                ATM->add_ATM_money(tr_1000, tr_5000 + 1, tr_10000, tr_50000);
+            }
+            cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+            cout << "┃                      입금이 완료되었습니다.                     ┃" << endl;
+            cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛" << endl;
+        }
+        a->get_ACCOUNT(get_acc)->add_acc_money(tr_money, atm_language); // 수수료를 뺀 금액을 계좌에 입금
+        if (deposit_type == 1) { deposit_type_str = "수표 입금"; }
+        else { deposit_type_str = "현금 입금"; }
+        session = "[거래 ID: " + to_string(get_serial()) + ", 카드번호: " + CARD->get_card_num() + ", 거래유형: 현금 이체, 금액: " + to_string(tr_total) + ", 받는 계좌 정보: " + ACC->get_bank()->getName() + "/" + ACC->get_owner()->getName() + ", 계좌번호: " + ACC->get_acc_num() + ", 이체유형: " + deposit_type_str + ", 사용중인 ATM: " + ATM->getBank()->getName() + "/" + to_string(ATM->getSN()) + "]";
+        session_atm = "[거래 ID: " + to_string(ATM->getsession_num()) + ", 카드번호: " + CARD->get_card_num() + ", 거래유형: 현금 이체, 금액: " + to_string(tr_total) + ", 받는 계좌 정보: " + ACC->get_bank()->getName() + "/" + ACC->get_owner()->getName() + ", 계좌번호: " + ACC->get_acc_num() + ", 이체유형: " + deposit_type_str + ", 사용중인 ATM: " + ATM->getBank()->getName() + "/" + to_string(ATM->getSN()) + "]";
+        write(ATM);
+        session_user = "[거래 ID: " + to_string(user_num) + ", 카드번호: " + CARD->get_card_num() + ", 거래유형: 현금 이체, 금액: " + to_string(tr_total) + ", 받는 계좌 정보: " + ACC->get_bank()->getName() + "/" + ACC->get_owner()->getName() + ", 계좌번호: " + ACC->get_acc_num() + ", 이체유형: " + deposit_type_str + ", 사용중인 ATM: " + ATM->getBank()->getName() + "/" + to_string(ATM->getSN()) + "]";
+    }
+}
+
+bool TR_SEND_A::valid(int money, int total, ATM* ATM, ACCOUNT* ACC) {
+    acc_money = ACC->get_acc_money();//ACCOUNT 잔여 금액 조회
+    if (total < acc_money) {
+        return true;
+    }
+    else return false;
+}
+
+bool TR_SEND_A::in_bank(ADMIN* a, string bank, string acc) { //은행명과 계좌가 있는지 확인
+    unsigned long size_bl = a->get_bank_list().size();
+    for (int i = 0; i < size_bl; i++) {
+        if (a->get_bank_list()[i]->getName() == bank) {
+            BANK* f_bank = a->get_bank_list()[i];
+            unsigned long size_al = f_bank->getBankacclist().size();
+            for (int j = 0; j < size_al; j++) {
+                if (f_bank->getBankacclist()[j]->get_acc_num() == acc) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+    return false;
+}
+
+TR_SEND_A::~TR_SEND_A() {
+    if (session != "")
+    {
+        ofstream writeFile; // 쓸 목적의 파일 선언
+        writeFile.open("Transaction History.txt", ios::app); // "추가 모드"로 파일 열기
+        if (writeFile.is_open()) { // 파일이 열렸는지 확인
+            writeFile << session << endl; // 내용을 추가
+        }
+        writeFile.close(); // 파일 닫기
+        writeFile.open("USER.txt", ios::app);
+        if (writeFile.is_open()) {
+            writeFile << session_user << endl;
+        }
+        writeFile.close();
+    }
+}
+
+void TR_SEND_A::write(ATM* ATM) {
+    ofstream writeFile(ATM->getfile_name(), ios::app);
+    if (writeFile.is_open()) {
+        writeFile << session_atm << endl;
+    }
+}
+
+TR_SEND_A::TR_SEND_A(ADMIN* a, ATM* ATM, ACCOUNT* ACC, USER* USER, CARD* CARD, int atm_language, int user_num) :TRANSACTION(ATM) {
+    if (atm_language == 1) {
+    re_input_1:
+        do {
+            do {
+                cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+                cout << "┃ Please enter your current bank (bank name of the sending account). ┃" << endl;
+                cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> " << endl;
+                cin >> give_bank;
+                if (give_bank == "-1") { return; }
+                cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+                cout << "┃ Please enter your current bank account (sending account). ┃" << endl;
+                cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> " << endl;
+                cin >> give_acc;
+                if (give_acc == "-1") { return; }
+                if (!in_bank(a, give_bank, give_acc)) {
+                    cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+                    cout << "┃ The entered bank name and account are not found. Please enter again. ┃" << endl;
+                    cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> " << endl;
+                }
+            } while (!in_bank(a, give_bank, give_acc));
+            if (ACC->get_owner()->getName() == USER->getName()) {
+                check = true;
+            }
+            else {
+                check = false;
+            }
+        } while (check != true);
+
+        do {
+            cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+            cout << "┃ Please enter the bank you want to send (bank name of the receiving account). ┃" << endl;
+            cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> " << endl;
+            cin >> get_bank;
+            if (get_bank == "-1") { return; }
+            cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+            cout << "┃ Please enter the bank account you want to send (receiving account). ┃" << endl;
+            cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+            cin >> get_acc;
+            if (get_acc == "-1") { return; }
+            if (!in_bank(a, get_bank, get_acc)) {
+                cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+                cout << "┃ The entered bank name and account are not found. Please enter again. ┃" << endl;
+                cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+            }
+        } while (!in_bank(a, get_bank, get_acc));
+        if (give_bank == get_bank && give_acc == get_acc) {
+            cout << "The sending and receiving accounts are the same. Please enter different accounts." << endl;
+            goto re_input_1;
+        }
+        do {
+            cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+            cout << "┃ Please enter the amount you want to send.                 ┃" << endl;
+            cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+            cin >> tr_money;
+            if (tr_money == -1) { return; }
+            tr_fee = fee(3, tr_money, a->get_ACCOUNT(give_acc), a->get_ACCOUNT(get_acc));
+            tr_total = tr_money + tr_fee;
+
+            if (!valid(tr_money, tr_total, ATM, a->get_ACCOUNT(give_acc))) {
+                cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+                cout << "┃ Unable to send. Please enter again. (Reason: Insufficient balance including fees) ┃" << endl;
+                cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+            }
+        } while (!valid(tr_money, tr_total, ATM, a->get_ACCOUNT(give_acc)));
+        cout << "The fee is " << tr_fee << " won, and the final withdrawal amount is " << tr_total << " won. The amount deposited into the recipient's account is " << tr_money << " won." << endl;
+        a->get_ACCOUNT(give_acc)->minus_acc_money(tr_total, atm_language);
+        a->get_ACCOUNT(get_acc)->add_acc_money(tr_money, atm_language);
+        cout << "┏━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+        cout << "┃ Transfer completed. ┃" << endl;
+        cout << "┗━━━━━━━━━━━━━━━━━━━━━┛" << endl;
+        session = "[Transaction ID: " + to_string(get_serial()) + ", Card Number: " + CARD->get_card_num() + ", Transaction Type: Account Transfer, Amount: " + to_string(tr_money) + ", Sending Account Information: " + a->get_ACCOUNT(give_acc)->get_bank()->getName() + "/" + a->get_ACCOUNT(give_acc)->get_owner()->getName() + ", Account Number: " + give_acc + ", Receiving Account Information: " + a->get_ACCOUNT(get_acc)->get_bank()->getName() + "/" + a->get_ACCOUNT(get_acc)->get_owner()->getName() + ", Account Number: " + get_acc + ", Used ATM: " + ATM->getBank()->getName() + "/" + to_string(ATM->getSN()) + "]";
+        session_atm = "[Transaction ID: " + to_string(ATM->getsession_num()) + ", Card Number: " + CARD->get_card_num() + ", Transaction Type: Account Transfer, Amount: " + to_string(tr_money) + ", Sending Account Information: " + a->get_ACCOUNT(give_acc)->get_bank()->getName() + "/" + a->get_ACCOUNT(give_acc)->get_owner()->getName() + ", Account Number: " + give_acc + ", Receiving Account Information: " + a->get_ACCOUNT(get_acc)->get_bank()->getName() + "/" + a->get_ACCOUNT(get_acc)->get_owner()->getName() + ", Account Number: " + get_acc + ", Used ATM: " + ATM->getBank()->getName() + "/" + to_string(ATM->getSN()) + "]";
+        write(ATM);
+        session_user = "[Transaction ID: " + to_string(user_num) + ", Card Number: " + CARD->get_card_num() + ", Transaction Type: Account Transfer, Amount: " + to_string(tr_money) + ", Sending Account Information: " + a->get_ACCOUNT(give_acc)->get_bank()->getName() + "/" + a->get_ACCOUNT(give_acc)->get_owner()->getName() + ", Account Number: " + give_acc + ", Receiving Account Information: " + a->get_ACCOUNT(get_acc)->get_bank()->getName() + "/" + a->get_ACCOUNT(get_acc)->get_owner()->getName() + ", Account Number: " + get_acc + ", Used ATM: " + ATM->getBank()->getName() + "/" + to_string(ATM->getSN()) + "]";
+    }
+    else if (atm_language == 2) {
+    re_input_2:
+        do {
+            do {
+                cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+                cout << "┃ 보내시는 현재의 은행을 입력해주세요(보내는 계좌의 은행명) ┃" << endl;
+                cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+                cin >> give_bank;
+                if (give_bank == "-1") { return; }
+                cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+                cout << "┃ 보내시는 현재의 은행 계좌를 입력해주세요(보내는 계좌) ┃" << endl;
+                cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+                cin >> give_acc;
+                if (give_acc == "-1") { return; }
+                if (!in_bank(a, give_bank, give_acc)) {
+                    cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+                    cout << "┃ 적어주신 은행명 및 계좌는 조회되지 않습니다. 다시 입력해주세요. ┃" << endl;
+                    cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+                }
+            } while (!in_bank(a, give_bank, give_acc));
+
+            if (ACC->get_owner()->getName() == USER->getName()) {
+                check = true;
+            }
+            else {
+                check = false;
+            }
+        } while (check != true);
+
+        do {
+            cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+            cout << "┃ 보내시려는 은행을 입력해주세요(받는 계좌의 은행명) ┃" << endl;
+            cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+            cin >> get_bank;
+            if (get_bank == "-1") { return; }
+            cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+            cout << "┃ 보내시려는 은행의 계좌를 입력해주세요(받는 계좌) ┃" << endl;
+            cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+            cin >> get_acc;
+            if (get_acc == "-1") { return; }
+            if (!in_bank(a, get_bank, get_acc)) {
+                cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+                cout << "┃ 적어주신 은행명 및 계좌는 조회되지 않습니다. 다시 입력해주세요. ┃" << endl;
+                cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+            }
+        } while (!in_bank(a, get_bank, get_acc));
+        if (give_bank == get_bank && give_acc == get_acc) {
+            cout << "보내실 계좌와 받으실 계좌가 동일한 계좌입니다. 다시 입력해주세요." << endl;
+            goto re_input_2;
+        }
+        do {
+            cout << "┏━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+            cout << "┃ 보내실 금액을 입력해주세요. ┃" << endl;
+            cout << "┗━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+            cin >> tr_money;
+            if (tr_money == -1) { return; }
+            tr_fee = fee(3, tr_money, a->get_ACCOUNT(give_acc), a->get_ACCOUNT(get_acc));
+            tr_total = tr_money + tr_fee;
+            if (!valid(tr_money, tr_total, ATM, a->get_ACCOUNT(give_acc))) {
+                cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+                cout << "┃ 보낼 수 없습니다. 다시 적어주세요. (이유: 수수료 포함 계좌 잔액 부족) ┃" << endl;
+                cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+            }
+        } while (!valid(tr_money, tr_total, ATM, a->get_ACCOUNT(give_acc)));
+        cout << "수수료는 " << tr_fee << "이며 최종 출금되는 금액은 " << tr_total << "원, 상대 계좌에 입금되는 금액은 " << tr_money << "원 입니다." << endl;
+        a->get_ACCOUNT(give_acc)->minus_acc_money(tr_total, atm_language); //보내는 계좌에서 금액 빼기
+        a->get_ACCOUNT(get_acc)->add_acc_money(tr_money, atm_language); //받는 계좌에서 금액 더하기
+        cout << "┏━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+        cout << "┃ 계좌이체가 완료되었습니다. ┃" << endl;
+        cout << "┗━━━━━━━━━━━━━━━━━━━━━┛" << endl;
+        session = "[거래 ID: " + to_string(get_serial()) + ", 카드번호: " + CARD->get_card_num() + ", 거래유형: 계좌 이체, 금액: " + to_string(tr_money) + ", 보낸 계좌정보: " + a->get_ACCOUNT(give_acc)->get_bank()->getName() + "/" + a->get_ACCOUNT(give_acc)->get_owner()->getName() + ", 계좌번호: " + give_acc + ", 받는 계좌정보: " + a->get_ACCOUNT(get_acc)->get_bank()->getName() + "/" + a->get_ACCOUNT(get_acc)->get_owner()->getName() + ", 계좌번호: " + get_acc + ", 사용중인 ATM: " + ATM->getBank()->getName() + "/" + to_string(ATM->getSN()) + "]";
+        session_atm = "[거래 ID: " + to_string(ATM->getsession_num()) + ", 카드번호: " + CARD->get_card_num() + ", 거래유형: 계좌 이체, 금액: " + to_string(tr_money) + ", 보낸 계좌정보: " + a->get_ACCOUNT(give_acc)->get_bank()->getName() + "/" + a->get_ACCOUNT(give_acc)->get_owner()->getName() + ", 계좌번호: " + give_acc + ", 받는 계좌정보: " + a->get_ACCOUNT(get_acc)->get_bank()->getName() + "/" + a->get_ACCOUNT(get_acc)->get_owner()->getName() + ", 계좌번호: " + get_acc + ", 사용중인 ATM: " + ATM->getBank()->getName() + "/" + to_string(ATM->getSN()) + "]";
+        write(ATM);
+        session_user = "[거래 ID: " + to_string(user_num) + ", 카드번호: " + CARD->get_card_num() + ", 거래유형: 계좌 이체, 금액: " + to_string(tr_money) + ", 보낸 계좌정보: " + a->get_ACCOUNT(give_acc)->get_bank()->getName() + "/" + a->get_ACCOUNT(give_acc)->get_owner()->getName() + ", 계좌번호: " + give_acc + ", 받는 계좌정보: " + a->get_ACCOUNT(get_acc)->get_bank()->getName() + "/" + a->get_ACCOUNT(get_acc)->get_owner()->getName() + ", 계좌번호: " + get_acc + ", 사용중인 ATM: " + ATM->getBank()->getName() + "/" + to_string(ATM->getSN()) + "]";
+    }
+}
+
+//  =================== ADMIN Funtion=====================
+
+BANK* ADMIN::get_BANK(string n) {
+    unsigned long size = bank_list.size();
+    for (int i = 0; i < size; i++) {
+        if (bank_list[i]->getName() == n) {
+            return bank_list[i];
+        }
+    }
+    cout << n << " BANK가 존재하지 않습니다." << endl;
+    return nullptr; //BANK를 찾지 못 했으면 nullptr을 return 해주기
+}
+
+ACCOUNT* ADMIN::get_ACCOUNT(string n) {
+    unsigned long size = acc_list.size();
+    for (int i = 0; i < size; i++) {
+        if (acc_list[i]->get_acc_num() == n) {
+            return acc_list[i];
+        }
+    }
+    cout << n << " 번호의 ACCOUNT가 존재하지 않습니다." << endl;
+    return nullptr; //ACCOUNT를 찾지 못 했으면 nullptr을 return 해주기
+}
+
+USER* ADMIN::get_USER(string n) {
+    unsigned long size = User_list.size();
+    for (int i = 0; i < size; i++) {
+        if (User_list[i]->getName() == n) {
+            return User_list[i];
+        }
+    }
+    cout << n << " 이름의 USER가 존재하지 않습니다." << endl;
+    return nullptr; //USER를 찾지 못 했으면 nullptr을 return 해주기
+}
+
+CARD* ADMIN::get_CARD(string n) {
+    unsigned long size = card_list.size();
+    for (int i = 0; i < size; i++) {
+        if (card_list[i]->get_card_num() == n) {
+            return card_list[i];
+        }
+    }
+    cout << n << " 번호를 가진 CARD가 존재하지 않습니다." << endl;
+    return nullptr; //CARD를 찾지 못 했으면 nullptr을 return 해주기
+}
+
+//  =================== Other Funtion=====================
+int Validcheck(ATM* atm, ADMIN* admin, string bank_name, string card_num, string password) {
+    //카드가 유효하면 1, Single ATM의 은행과 카드 은행이 일치하지 않는 경우 -1,
+    //번호와 일치하는 카드가 없으면 -2, 카드는 존재하는데 비밀번호가 틀릴 경우 -3을 return
+    BANK* b = admin->get_BANK(bank_name);
+    if ((atm->getSM() == 0) && (atm->getBank() != b))
+    {
+        return -1;
+    }
+    CARD* a = admin->get_CARD(card_num);
+    if (a == nullptr) { //입력받은 카드번호와 일치하는 카드가 없을 경우
+        return -2;
+    }
+    else { //카드번호와 일치하는 카드를 찾은 경우, 비밀번호 확인해주기
+        if (a->get_card_pw() == password) {
+            cout << a->get_card_num() << " 은 사용가능한 카드입니다." << endl;
+            return 1;
+        }
+        else {
+            cout << "카드 비밀번호가 맞지 않습니다." << endl;
+            return -3;
+        }
+    }
+}
+
+ACCOUNT* get_account(ADMIN* admin, string acc_bank, string acc_num) {
+    BANK* b = admin->get_BANK(acc_bank);
+    if (b == nullptr) {
+        cout << acc_bank << "는 존재하지 않는 은행입니다." << endl;
+    }
+    else {
+        int n = b->getBankaccnum();
+        vector<ACCOUNT*> acc_list = b->getBankacclist();
+        for (int i = 0; i < n; i++)
+        {
+            if (acc_list[i]->get_acc_num() == acc_num)
+            {
+                return acc_list[i];
+            }
+        }
+        cout << acc_num << "은 존재하지 않는 계좌입니다." << endl;
+    }
+    return nullptr;
+}
+
+bool isPrimary(ATM* atm, ACCOUNT* acc) {
+    BANK* atm_bank = atm->getBank();
+    BANK* acc_bank = acc->get_bank();
+    if (atm_bank == acc_bank) {
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+
+bool invalid_cin(istream& cin) {
+    if (cin.fail()) {
+        cin.clear();
+        cin.ignore(256, '\n');
+        return true;
+    }
+    return false;
+}
+
+void print_invalid_input(int a) {
+    if (a == 0) {
+        cout << "┏━━━━━━━━━━━━━━━┓" << endl;
+        cout << "┃ Invalid input ┃" << endl;
+        cout << "┗━━━━━━━━━━━━━━━┛\n> " << endl;;
+    }
+
+    else if (a == 1) {
+        cout << "┏━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+        cout << "┃ 유효하지 않은 입력입니다. ┃" << endl;
+        cout << "┗━━━━━━━━━━━━━━━━━━━━━┛\n> " << endl;;
+    }
+}
+void print_all_information(ADMIN* admin) {
+    size_t acc_size = admin->get_acc_list().size();
+    size_t atm_size = admin->get_atm_list().size();
+    if (acc_size != 0) {
+
+        for (int i = 0; i < acc_size; i++) {
+            cout << "[Account " << i + 1 << " Bank : " << admin->get_acc_list()[i]->get_bank()->getName() << " Owner : " << admin->get_acc_list()[i]->get_owner()->getName() << "] Balance:" << admin->get_acc_list()[i]->get_acc_money() << endl;
+        }
+    }
+    if (atm_size != 0) {
+
+        for (int j = 0; j < atm_size; j++) {
+            string num_1000 = (admin->get_atm_list()[j]->getATM_Money_1000() == 0) ? "" : "1000원X" + to_string(admin->get_atm_list()[j]->getATM_Money_1000()) + "장";
+            string num_5000 = (admin->get_atm_list()[j]->getATM_Money_5000() == 0) ? "" : "5000원X" + to_string(admin->get_atm_list()[j]->getATM_Money_5000()) + "장";
+            string num_10000 = (admin->get_atm_list()[j]->getATM_Money_10000() == 0) ? "" : "10000원X" + to_string(admin->get_atm_list()[j]->getATM_Money_10000()) + "장";
+            string num_50000 = (admin->get_atm_list()[j]->getATM_Money_50000() == 0) ? "" : "50000원X" + to_string(admin->get_atm_list()[j]->getATM_Money_50000()) + "장";
+
+            string combined_str = num_1000;
+            if (!num_5000.empty() and !num_1000.empty()) {
+                combined_str += ", ";
+            }
+            combined_str += num_5000;
+            if (!num_10000.empty() and (!num_1000.empty() or !num_5000.empty())) {
+                combined_str += ", ";
+            }
+            combined_str += num_10000;
+            if (!num_50000.empty() and (!num_1000.empty() or !num_5000.empty() or !num_10000.empty())) {
+                combined_str += ", ";
+            }
+            combined_str += num_50000;
+
+            cout << "[ATM " << j + 1 << " SN :" << admin->get_atm_list()[j]->getSN() << " BANK :" << admin->get_atm_list()[j]->getBank()->getName() << "] Remaining Cash: " << admin->get_atm_list()[j]->getATM_Money() << "( " << combined_str << " )" << endl;
+        }
+    }
+
+}
+
+int main() {
+    int main_task, bank_menu_input, bank_select_input, bank_use_input, bank_atm_sn, bank_atm_sm, bank_atm_lan, bank_atm_1000_num, bank_atm_5000_num, bank_atm_10000_num, bank_atm_50000_num, user_menu_input, user_select_input, user_use_input, index, atm_select_input, ATM_use_input, atm_language = 1, admin_input;
+    string bank_name, bank_user_name, bank_acc_num, bank_acc_pw, bank_card_num, user_name, inserted_card_num, atm_card_num, atm_card_password, a;
+    long long bank_acc_money;
+    ADMIN* admin = new ADMIN;
+    string filename = "Transaction History.txt";
+    string user_txt = "USER.txt";
+    initializeFile(user_txt);
+    initializeFile(filename);
+
+    while (true) {
+    Main:
+        cout << "┏━━━━━━━━━━━━━ MAIN ━━━━━━━━━━━━━┓" << endl;
+        cout << "┃ Please select a task type.     ┃" << endl;
+        cout << "┃--------------------------------┃" << endl;
+        cout << "┃ 1 : BANK(Create and Use BANK)  ┃" << endl;
+        cout << "┃ 2 : USER(Create and Use USER)  ┃" << endl;
+        cout << "┃ 3 : ATM(Use ATM)               ┃" << endl;
+        cout << "┃ 4 : Display all information    ┃" << endl;
+        cout << "┃                                ┃" << endl;
+        cout << "┃ 0 : Exit Program               ┃" << endl;
+        cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+        cin >> main_task;
+        if (invalid_cin(cin) or (main_task != 1 and main_task != 2 and main_task != 3 and main_task != 4 and main_task != 0)) {
+            print_invalid_input(0);
+            goto Main;
+        }
+
+        if (main_task == 0)
+            return 0;
+        // ================ BANK 관련 업무를 선택한 경우 ====================
+        else if (main_task == 1) {
+        BANK:
+            cout << "┏━━━━━━━━━━━━━ BANK ━━━━━━━━━━━━━┓" << endl;
+            cout << "┃ Please select a task type.     ┃" << endl;
+            cout << "┃--------------------------------┃" << endl;
+            cout << "┃ 1 : Create new BANK            ┃" << endl;
+            cout << "┃ 2 : Use Bank(Go to Bank list)  ┃" << endl;
+            cout << "┃                                ┃" << endl;
+            cout << "┃ 0 : Cancel (Go to Main)        ┃" << endl;
+            cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+            cin >> bank_menu_input;
+            if (invalid_cin(cin) or (bank_menu_input != 1 and bank_menu_input != 2 and bank_menu_input != 0)) {
+                print_invalid_input(0);
+                goto BANK;
+            }
+
+            if (bank_menu_input == 0)
+                goto Main;
+
+            // ================ CREATE NEW BANK ====================
+            else if (bank_menu_input == 1) {
+            Make_Bank:
+                cout << "┏━━━━━━━━━━━━━ BANK ━━━━━━━━━━━━┓" << endl;
+                cout << "┃ Please enter the bank name.   ┃" << endl;
+                cout << "┃                               ┃" << endl;
+                cout << "┃ 0 : Cancel (Go to Main)       ┃" << endl;
+                cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+                cin >> bank_name;
+                if (invalid_cin(cin)) {
+                    print_invalid_input(0);
+                    goto Make_Bank;
+                }
+
+                if (bank_name == "0") {
+                    goto Main;
+                }
+
+                else if (admin->get_BANK(bank_name) == nullptr) {
+                    BANK* new_bank = new BANK(bank_name);
+                    admin->add_bank(new_bank);
+                    goto Main;
+                }
+            }
+
+            else if (bank_menu_input == 2) {
+            Select_Bank:
+                cout << "┏━━━━━━━━━━━━━ BANK ━━━━━━━━━━━━┓" << endl;
+                cout << "┃ Please select the bank.       ┃" << endl;
+                cout << "┃-------------------------------┃" << endl;
+                if (admin->get_bank_list().size() == 0) {
+                    cout << "┃ There is no Bank.             ┃" << endl;
+                }
+                for (int i = 0; i < admin->get_bank_list().size(); i++) {
+                    cout << "┃ " << i + 1 << " : " << left << setw(26) << admin->get_bank_list()[i]->getName() << "┃" << endl;
+                }
+                cout << "┃ 0 : Cancel (Go to Main)       ┃" << endl;
+                cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+                cin >> bank_select_input;
+                if (invalid_cin(cin)) {
+                    print_invalid_input(0);
+                    goto Select_Bank;
+                }
+
+                if (bank_select_input == 0) {
+                    goto Main;
+                }
+
+                else if ((admin->get_bank_list().size() == 0) and (bank_select_input > 0)) {
+                    print_invalid_input(0);
+                    goto Select_Bank;
+                }
+
+                else if (bank_select_input > admin->get_bank_list().size()) {
+                    print_invalid_input(0);
+                    goto Select_Bank;
+                }
+
+                else {
+                    BANK* use_bank = admin->get_bank_list()[bank_select_input - 1];
+                USE_BANK:
+                    cout << "┏━━━━━━━━━━━━━━ BANK ━━━━━━━━━━━━━┓" << endl;
+                    cout << "┃ Please select the task.         ┃" << endl;
+                    cout << "┃---------------------------------┃" << endl;
+                    cout << "┃ 1 : Create Account              ┃" << endl;
+                    cout << "┃ 2 : Create ATM                  ┃" << endl;
+                    cout << "┃                                 ┃" << endl;
+                    cout << "┃ 0 : Cancel (Go to Main)         ┃" << endl;
+                    cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+                    cin >> bank_use_input;
+                    if (invalid_cin(cin) or (bank_use_input != 1 and bank_use_input != 2 and bank_use_input != 0)) {
+                        print_invalid_input(0);
+                        goto USE_BANK;
+                    }
+
+                    if (bank_use_input == 0)
+                        goto Main;
+
+                    if (bank_use_input == 1) {
+                        cout << "┏━━━━━━━━━━━━━ BANK ━━━━━━━━━━━━┓" << endl;
+                        cout << "┃ Please enter the user name.   ┃" << endl;
+                        cout << "┃                               ┃" << endl;
+                        cout << "┃ 0 : Cancel (Go to Main)       ┃" << endl;
+                        cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+                        cin >> bank_user_name;
+                        if (bank_user_name == "0")
+                            goto Main;
+                        if (admin->get_USER(bank_user_name) == nullptr)
+                            goto Main;
+
+                        cout << "┏━━━━━━━━━━━━━━━ BANK ━━━━━━━━━━━━━━┓" << endl;
+                        cout << "┃ Please enter the Account number.  ┃" << endl;
+                        cout << "┃                                   ┃" << endl;
+                        cout << "┃ 0 : Cancel (Go to Main)           ┃" << endl;
+                        cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+                        cin >> bank_acc_num;
+                        if (bank_acc_num == "0")
+                            goto Main;
+                        if (admin->get_ACCOUNT(bank_acc_num) != nullptr)
+                            goto Main;
+
+                        cout << "┏━━━━━━━━━━━━━━━━━━ BANK ━━━━━━━━━━━━━━━━━┓" << endl;
+                        cout << "┃ Please enter the initial Account money. ┃" << endl;
+                        cout << "┃                                         ┃" << endl;
+                        cout << "┃ 0 : Cancel (Go to Main)                 ┃" << endl;
+                        cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+                        cin >> bank_acc_money;
+                        if (invalid_cin(cin)) {
+                            print_invalid_input(0);
+                            goto Main;
+                        }
+                        if (bank_acc_money == 0)
+                            goto Main;
+
+                        cout << "┏━━━━━━━━━━━━━━━━ BANK ━━━━━━━━━━━━━━━┓" << endl;
+                        cout << "┃ Please enter the Account password.  ┃" << endl;
+                        cout << "┃                                     ┃" << endl;
+                        cout << "┃ 0 : Cancel (Go to Main)             ┃" << endl;
+                        cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+                        cin >> bank_acc_pw;
+                        if (bank_acc_pw == "0")
+                            goto Main;
+
+                        cout << "┏━━━━━━━━━━━━━━━━━ BANK ━━━━━━━━━━━━━━━━┓" << endl;
+                        cout << "┃ Please enter the Account card number. ┃" << endl;
+                        cout << "┃                                       ┃" << endl;
+                        cout << "┃ 0 : Cancel (Go to Main)               ┃" << endl;
+                        cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+                        cin >> bank_card_num;
+                        if (admin->get_CARD(bank_card_num) != nullptr) {
+                            cout << "Card Number " << bank_card_num << " is already exists." << endl;
+                            cout << "Session End" << endl;
+                            goto Main;
+                        }
+                        else if (bank_card_num == "0")
+                            goto Main;
+                        // CARD 만들면서 ACCOUNT에 이어주기
+                        ACCOUNT* made_acc = use_bank->MakeAccount(admin->get_USER(bank_user_name), use_bank, bank_acc_num, bank_acc_money, bank_acc_pw, bank_card_num);
+                        admin->get_USER(bank_user_name)->add_acc(made_acc);
+                        admin->add_acc(made_acc);
+                        admin->add_card(made_acc->get_card());
+                        goto Main;
+
+                    }
+                    else if (bank_use_input == 2) {
+                        cout << "┏━━━━━━━━━━━━━━━━━━ BANK ━━━━━━━━━━━━━━━━━┓" << endl;
+                        cout << "┃ Please enter the Serial Number of ATM.  ┃" << endl;
+                        cout << "┃                                         ┃" << endl;
+                        cout << "┃ 0 : Cancel (Go to Main)                 ┃" << endl;
+                        cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+                        cin >> bank_atm_sn;
+                        if (invalid_cin(cin)) {
+                            print_invalid_input(0);
+                            goto Main;
+                        }
+                        if (bank_atm_sn == 0)
+                            goto Main;
+
+                        cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━ BANK ━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+                        cout << "┃ Please enter the ATM type(Single = 1, Multi = 2).   ┃" << endl;
+                        cout << "┃                                                     ┃" << endl;
+                        cout << "┃ 0 : Cancel (Go to Main)                             ┃" << endl;
+                        cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+                        cin >> bank_atm_sm;
+                        if (invalid_cin(cin)) {
+                            print_invalid_input(0);
+                            goto Main;
+                        }
+                        if (bank_atm_sm == 0)
+                            goto Main;
+
+                        cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ BANK ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+                        cout << "┃ Please enter the language property of ATM(Unilingual : 1, Bilingual : 2).  ┃" << endl;
+                        cout << "┃                                                                            ┃" << endl;
+                        cout << "┃ 0 : Cancel (Go to Main)                                                    ┃" << endl;
+                        cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+                        cin >> bank_atm_lan;
+                        if (invalid_cin(cin)) {
+                            print_invalid_input(0);
+                            goto Main;
+                        }
+                        if (bank_atm_lan == 0)
+                            goto Main;
+
+                        cout << "┏━━━━━━━━━━━━━━━━━━━━━━ BANK ━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+                        cout << "┃ Please enter the initial fund(cash) KRW 1000.   ┃" << endl;
+                        cout << "┃                                                 ┃" << endl;
+                        cout << "┃ -1 : Cancel (Go to Main)                        ┃" << endl;
+                        cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+                        cin >> bank_atm_1000_num;
+                        if (invalid_cin(cin)) {
+                            print_invalid_input(0);
+                            goto Main;
+                        }
+                        if (bank_atm_1000_num == -1)
+                            goto Main;
+
+                        cout << "┏━━━━━━━━━━━━━━━━━━━━━━ BANK ━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+                        cout << "┃ Please enter the initial fund(cash) KRW 5000.   ┃" << endl;
+                        cout << "┃                                                 ┃" << endl;
+                        cout << "┃ -1 : Cancel (Go to Main)                        ┃" << endl;
+                        cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+                        cin >> bank_atm_5000_num;
+                        if (invalid_cin(cin)) {
+                            print_invalid_input(0);
+                            goto Main;
+                        }
+                        if (bank_atm_5000_num == -1)
+                            goto Main;
+
+
+                        cout << "┏━━━━━━━━━━━━━━━━━━━━━━━ BANK ━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+                        cout << "┃ Please enter the initial fund(cash) KRW 10000.   ┃" << endl;
+                        cout << "┃                                                  ┃" << endl;
+                        cout << "┃ -1 : Cancel (Go to Main)                         ┃" << endl;
+                        cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+                        cin >> bank_atm_10000_num;
+                        if (invalid_cin(cin)) {
+                            print_invalid_input(0);
+                            goto Main;
+                        }
+                        if (bank_atm_10000_num == -1)
+                            goto Main;
+
+                        cout << "┏━━━━━━━━━━━━━━━━━━━━━━━ BANK ━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+                        cout << "┃ Please enter the initial fund(cash) KRW 50000.   ┃" << endl;
+                        cout << "┃                                                  ┃" << endl;
+                        cout << "┃ -1 : Cancel (Go to Main)                         ┃" << endl;
+                        cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+                        cin >> bank_atm_50000_num;
+                        if (invalid_cin(cin)) {
+                            print_invalid_input(0);
+                            goto Main;
+                        }
+                        if (bank_atm_50000_num == -1)
+                            goto Main;
+
+                        ATM* a = use_bank->MakeATM(use_bank, bank_atm_sn, bank_atm_sm - 1, bank_atm_lan - 1, bank_atm_1000_num, bank_atm_5000_num, bank_atm_10000_num, bank_atm_50000_num);
+                        admin->add_atm(a);
+                        goto Main;
+                    }
+
+
+                }
+            }
+        }
+
+        // ================ USER 관련 업무를 선택한 경우 ====================
+
+        else if (main_task == 2) {
+        USER:
+            cout << "┏━━━━━━━━━━━━━ USER ━━━━━━━━━━━━━┓" << endl;
+            cout << "┃ Please select a task type.     ┃" << endl;
+            cout << "┃--------------------------------┃" << endl;
+            cout << "┃ 1 : Create new USER            ┃" << endl;
+            cout << "┃ 2 : See User(Go to User list)  ┃" << endl;
+            cout << "┃                                ┃" << endl;
+            cout << "┃ 0 : Cancel (Go to Main)        ┃" << endl;
+            cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+            cin >> user_menu_input;
+            if (invalid_cin(cin) or (user_menu_input != 1 and user_menu_input != 2 and user_menu_input != 0)) {
+                print_invalid_input(0);
+                goto USER;
+            }
+
+            if (user_menu_input == 0)
+                goto Main;
+
+            else if (user_menu_input == 1) {
+                cout << "┏━━━━━━━━━━━━━ USER ━━━━━━━━━━━━┓" << endl;
+                cout << "┃ Please enter the user name.   ┃" << endl;
+                cout << "┃                               ┃" << endl;
+                cout << "┃ 0 : Cancel (Go to Main)       ┃" << endl;
+                cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+                cin >> user_name;
+
+                if (user_name == "0")
+                    goto Main;
+                else {
+                    USER* user = new USER(user_name);
+                    admin->add_user(user);
+                    goto Main;
+                }
+            }
+
+            else if (user_menu_input == 2) {
+            Select_User:
+                cout << "┏━━━━━━━━━━━━━ USER ━━━━━━━━━━━━┓" << endl;
+                cout << "┃ Please select the user.       ┃" << endl;
+                cout << "┃-------------------------------┃" << endl;
+                if (admin->get_user_list().size() == 0) {
+                    cout << "┃ There is no User.             ┃" << endl;
+                }
+                for (int i = 0; i < admin->get_user_list().size(); i++) {
+                    cout << "┃ " << i + 1 << " : " << left << setw(26) << admin->get_user_list()[i]->getName() << "┃" << endl;
+                }
+                cout << "┃ 0 : Cancel (Go to Main)       ┃" << endl;
+                cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+                cin >> user_select_input;
+                if (invalid_cin(cin)) {
+                    print_invalid_input(0);
+                    goto Select_User;
+                }
+
+
+                if (user_select_input == 0) {
+                    goto Main;
+                }
+
+                else if ((admin->get_user_list().size() == 0) and (user_select_input > 0)) {
+                    print_invalid_input(0);
+                    goto Select_User;
+                }
+
+                else if (user_select_input > admin->get_user_list().size()) {
+                    print_invalid_input(0);
+                    goto Select_User;
+                }
+
+                else {
+                    USER* use_user = admin->get_user_list()[user_select_input - 1];
+                USE_USER:
+                    cout << "┏━━━━━━━━━━━━━━━ USER ━━━━━━━━━━━━━━┓" << endl;
+                    cout << "┃ Please select the task.           ┃" << endl;
+                    cout << "┃-----------------------------------┃" << endl;
+                    cout << "┃ 1 : See Account list              ┃" << endl;
+                    cout << "┃                                   ┃" << endl;
+                    cout << "┃ 0 : Cancel (Go to Main)           ┃" << endl;
+                    cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+                    cin >> user_use_input;
+                    if (invalid_cin(cin) or (user_use_input != 1 and user_use_input != 0)) {
+                        print_invalid_input(0);
+                        goto USE_USER;
+                    }
+
+                    if (user_use_input == 0)
+                        goto Main;
+
+                    else if (user_use_input == 1) {
+                        cout << "┏━━━━━━━━━━━━━━━ USER ━━━━━━━━━━━━━━┓" << endl;
+                        cout << "┃ " << left << setw(33) << use_user->getName() + "'s Account list" << " ┃" << endl;
+                        cout << "┃-----------------------------------┃" << endl;
+                        use_user->Print_acc_list();
+                        cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> " << endl;
+                        goto Main;
+                    }
+                }
+            }
+        }
+        else if (main_task == 3) {
+        Select_ATM:
+            cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ ATM ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << endl;
+            cout << "┃ Please select the ATM.                                           ┃" << endl;
+            cout << "┃------------------------------------------------------------------┃" << endl;
+            if (admin->get_atm_list().size() == 0) {
+                cout << "┃ There is no ATM.                                                 ┃" << endl;
+            }
+            for (int i = 0; i < admin->get_atm_list().size(); i++) {
+                string type = (admin->get_atm_list()[i]->getSM() == 0) ? "Single" : "Multi";
+                cout << "┃ " << i + 1 << " : [SN : " << left << setw(6) << admin->get_atm_list()[i]->getSN() << ", BANK : " << setw(40) << admin->get_atm_list()[i]->getBank()->getName() + ", Type : " + type + "]" << "┃" << endl;
+
+            }
+            cout << "┃ 0 : Cancel (Go to Main)                                          ┃" << endl;
+            cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+            cin >> atm_select_input;
+            if (invalid_cin(cin)) {
+                print_invalid_input(0);
+                goto Select_ATM;
+            }
+
+
+            if (atm_select_input == 0) {
+                goto Main;
+            }
+
+            else if ((admin->get_atm_list().size() == 0) and (atm_select_input > 0)) {
+                print_invalid_input(0);
+                goto Select_ATM;
+            }
+
+            else if (atm_select_input > admin->get_atm_list().size()) {
+                print_invalid_input(0);
+                goto Select_ATM;
+            }
+
+            else {
+                ATM* use_atm = admin->get_atm_list()[atm_select_input - 1];
+                if (use_atm->getlan() == 1) {
+                Language_select:
+                    cout << "┏━━━━━━━━━━━━━━━━ ATM ━━━━━━━━━━━━━━━┓" << endl;
+                    cout << "┃ Please select the language         ┃" << endl;
+                    cout << "┃------------------------------------┃" << endl;
+                    cout << "┃ 1 : English                        ┃" << endl;
+                    cout << "┃ 2 : 한국어                           ┃" << endl;
+                    cout << "┃                                    ┃" << endl;
+                    cout << "┃ 0 : Cancel (Go to Main)            ┃" << endl;
+                    cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+                    cin >> atm_language;
+                    if (invalid_cin(cin) or (atm_language != 1 and atm_language != 2 and atm_language != 0)) {
+                        print_invalid_input(0);
+                        goto Language_select;
+                    }
+                    if (atm_language == 0) {
+                        goto Main;
+                    }
+
+                    else if (atm_language == 1) {
+                    bilingual_ATM_insertcard_English:
+                        cout << "┏━━━━━━━━━━━━━━━━ ATM ━━━━━━━━━━━━━━━┓" << endl;
+                        cout << "┃             Insert Card            ┃" << endl;
+                        cout << "┃                                    ┃" << endl;
+                        cout << "┃ 0 : Cancel (Go to Main)            ┃" << endl;
+                        cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+                        cin >> atm_card_num;
+                        if (invalid_cin(cin)) {
+                            print_invalid_input(0);
+                            goto bilingual_ATM_insertcard_English;
+                        }
+
+                        if (atm_card_num == "admin") {
+                            string admin_pw;
+                        Enter_password_admin_1:
+                            cout << "┏━━━━━━━━━━━━━━━ ATM ━━━━━━━━━━━━━━━┓" << endl;
+                            cout << "┃           Enter Password          ┃" << endl;
+                            cout << "┃                                   ┃" << endl;
+                            cout << "┃ 0 : Cancel (Go to Main)           ┃" << endl;
+                            cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+                            cin >> admin_pw;
+                            if (admin_pw == "admin") {
+                                cout << "┏━━━━━━━━━━━━━━━━ ATM ━━━━━━━━━━━━━━━┓" << endl;
+                                cout << "┃ 1 : Transaction History             ┃" << endl;
+                                cout << "┃                                    ┃" << endl;
+                                cout << "┃ 0 : Cancel (Go to Main)            ┃" << endl;
+                                cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+                                cin >> admin_input;
+                                if (invalid_cin(cin) or (admin_input != 0 and admin_input != 1)) {
+                                    print_invalid_input(0);
+                                    goto Main;
+                                }
+
+                                else if (admin_input == 0)
+                                    goto Main;
+
+                                else if (admin_input == 1) {
+                                    string name = to_string(use_atm->getSN()) + "ATM.txt";
+                                    ifstream file;
+                                    file.open(name);
+
+                                    if (!file.is_open()) {
+                                        cout << "파일이 안 열려요!" << endl;
+                                    }
+
+                                    string line;
+                                    cout << "------------------------------ Transaction history ------------------------------" << endl;
+                                    while (!file.eof()) {
+                                        getline(file, line);
+                                        cout << line << endl;
+                                    }
+                                    cout << "---------------------------------------------------------------------------------" << endl;
+
+                                    file.close();
+                                    goto Main;
+                                }
+                            }
+                        }
+
+                        if (admin->get_CARD(atm_card_num) == nullptr) {
+                            cout << "Session End" << endl;
+                            goto Main;
+                        }
+
+                        else if (admin->get_CARD(atm_card_num) != nullptr) {
+                            CARD* use_card = admin->get_CARD(atm_card_num);
+
+
+                            if (use_atm->getSM() == 0 and !(isPrimary(use_atm, use_card->get_card_acc()))) {
+                                cout << "Error : Single type ATM can use only Primary bank card." << endl;
+                                cout << "Session End" << endl;
+                                goto Main;
+                            }
+
+                            else {
+                                int count = 0;
+                            Enter_password:
+                                cout << "┏━━━━━━━━━━━━━━━ ATM ━━━━━━━━━━━━━━━┓" << endl;
+                                cout << "┃           Enter Password          ┃" << endl;
+                                cout << "┃                                   ┃" << endl;
+                                cout << "┃ 0 : Cancel (Go to Main)           ┃" << endl;
+                                cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+                                cin >> atm_card_password;
+                                if (invalid_cin(cin)) {
+                                    print_invalid_input(0);
+                                    goto Enter_password;
+                                }
+                                if (count == 2) {
+                                    cout << "Error : You entered wrong password for 3 times." << endl;
+                                    cout << "Session End" << endl;
+                                    goto Main;
+                                }
+                                else if (count < 3 and atm_card_password != use_card->get_card_pw()) {
+                                    cout << "Error : Wrong Password" << endl;
+                                    count++;
+                                    goto Enter_password;
+                                }
+                                else if (count < 3 and atm_card_password == use_card->get_card_pw()) {
+                                    int count_withdrawal = 0;
+                                    initializeFile(user_txt);
+                                    int user_num = 0;
+                                ATM_task:
+                                    if (use_atm->getATM_Money() == 0) {
+                                        cout << "Error : There is no money in this ATM" << endl;
+                                        cout << "Session End" << endl;
+                                        ifstream file;
+                                        file.open("USER.txt");
+
+                                        if (!file.is_open()) {
+                                            cout << "파일이 안 열려요!" << endl;
+                                        }
+
+                                        string line;
+                                        cout << "------------------------------ Session Transaction history ------------------------------" << endl;
+                                        while (!file.eof()) {
+                                            getline(file, line);
+                                            cout << line << endl;
+                                        }
+                                        cout << "-----------------------------------------------------------------------------------------" << endl;
+
+                                        file.close();
+                                        goto Main;
+                                    }
+                                    user_num++;
+                                    cout << "┏━━━━━━━━━━━━━ ATM ━━━━━━━━━━━━━┓" << endl;
+                                    cout << "┃ Please select a task type.    ┃" << endl;
+                                    cout << "┃-------------------------------┃" << endl;
+                                    cout << "┃ 1 : Deposit                   ┃" << endl;
+                                    cout << "┃ 2 : Withdrawal                ┃" << endl;
+                                    cout << "┃ 3 : Transfer (Using Cash)     ┃" << endl;
+                                    cout << "┃ 4 : Transfer (Using Account)  ┃" << endl;
+                                    cout << "┃                               ┃" << endl;
+                                    cout << "┃ 0 : Cancel (Go to Main)       ┃" << endl;
+                                    cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+                                    cin >> index;
+                                    if (invalid_cin(cin)) {
+                                        print_invalid_input(0);
+                                        goto ATM_task;
+                                    }
+
+                                    if (index == 0) {
+                                        cout << "Session End" << endl;
+                                        ifstream file;
+                                        file.open("USER.txt");
+
+                                        if (!file.is_open()) {
+                                            cout << "파일이 안 열려요!" << endl;
+                                        }
+
+                                        string line;
+                                        cout << "------------------------------ Session Transaction history ------------------------------" << endl;
+                                        while (!file.eof()) {
+                                            getline(file, line);
+                                            cout << line << endl;
+                                        }
+                                        cout << "-----------------------------------------------------------------------------------------" << endl;
+
+                                        file.close();
+                                        goto Main;
+                                    }
+
+                                    else if (index == 1) {
+                                        TR_DEPOSIT* tr_deposit = new TR_DEPOSIT(use_card->get_card_acc()->get_owner(), use_atm, use_card->get_card_acc(), use_card, atm_language, user_num);
+                                        delete tr_deposit;
+                                        goto ATM_task;
+                                    }
+
+                                    else if (index == 2) {
+                                        count_withdrawal++;
+                                        if (count_withdrawal == 4) {
+                                            cout << "You can withdraw only 3 times in one session." << endl;
+                                            cout << "Session end" << endl;
+                                            ifstream file;
+                                            file.open("USER.txt");
+
+                                            if (!file.is_open()) {
+                                                cout << "파일이 안 열려요!" << endl;
+                                            }
+
+                                            string line;
+                                            cout << "------------------------------ Session Transaction history ------------------------------" << endl;
+                                            while (!file.eof()) {
+                                                getline(file, line);
+                                                cout << line << endl;
+                                            }
+                                            cout << "-----------------------------------------------------------------------------------------" << endl;
+
+                                            file.close();
+                                            goto Main;
+
+                                        }
+                                        else {
+                                            TR_WITHDRAWAL* tr_withdrawal = new TR_WITHDRAWAL(use_card->get_card_acc()->get_owner(), use_atm, use_card->get_card_acc(), use_card, atm_language, user_num);
+                                            delete tr_withdrawal;
+                                            goto ATM_task;
+                                        }
+                                    }
+
+                                    else if (index == 3) {
+                                        TR_SEND_C* tr_send_c = new TR_SEND_C(admin, use_atm, use_card->get_card_acc(), use_card->get_card_acc()->get_owner(), use_card, atm_language, user_num);
+                                        delete tr_send_c;
+                                        goto ATM_task;
+                                    }
+
+                                    else if (index == 4) {
+                                        TR_SEND_A* tr_send_a = new TR_SEND_A(admin, use_atm, use_card->get_card_acc(), use_card->get_card_acc()->get_owner(), use_card, atm_language, user_num);
+                                        delete tr_send_a;
+                                        goto ATM_task;
+                                    }
+                                }
+
+                            }
+                        }
+
+                    }
+
+                    else if (atm_language == 2) {
+                    bilingual_ATM_insertcard_Korean:
+                        cout << "┏━━━━━━━━━━━━━━━━ ATM ━━━━━━━━━━━━━━━┓" << endl;
+                        cout << "┃            카드를 넣어주세요            ┃" << endl;
+                        cout << "┃                                    ┃" << endl;
+                        cout << "┃ 0 : 취소 (ATM 종료, 메인으로 이동)       ┃" << endl;
+                        cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+                        cin >> atm_card_num;
+                        if (invalid_cin(cin)) {
+                            print_invalid_input(0);
+                            goto bilingual_ATM_insertcard_Korean;
+                        }
+
+                        if (atm_card_num == "admin") {
+                            string admin_pw;
+                        Enter_password_admin_2:
+                            cout << "┏━━━━━━━━━━━━━━━ ATM ━━━━━━━━━━━━━━━┓" << endl;
+                            cout << "┃         비밀번호를 입력해주세요          ┃" << endl;
+                            cout << "┃                                   ┃" << endl;
+                            cout << "┃ 0 : Cancel (Go to Main)           ┃" << endl;
+                            cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+                            cin >> admin_pw;
+
+                            if (admin_pw == "0")
+                                goto Main;
+                            if (admin_pw == "admin") {
+                                cout << "┏━━━━━━━━━━━━━━━━ ATM ━━━━━━━━━━━━━━━┓" << endl;
+                                cout << "┃ 1. Transaction History             ┃" << endl;
+                                cout << "┃                                    ┃" << endl;
+                                cout << "┃ 0 : Cancel (Go to Main)            ┃" << endl;
+                                cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+                                cin >> admin_input;
+                                if (invalid_cin(cin) or (admin_input != 0 and admin_input != 1)) {
+                                    print_invalid_input(1);
+                                    goto Main;
+                                }
+
+                                else if (admin_input == 0)
+                                    goto Main;
+
+                                else if (admin_input == 1) {
+                                    string name = to_string(use_atm->getSN()) + "ATM.txt";
+                                    ifstream file;
+                                    file.open(name);
+
+                                    if (!file.is_open()) {
+                                        cout << "파일이 안 열려요!" << endl;
+                                    }
+
+                                    string line;
+                                    cout << "------------------------------ Transaction history ------------------------------" << endl;
+                                    while (!file.eof()) {
+                                        getline(file, line);
+                                        cout << line << endl;
+                                    }
+                                    cout << "---------------------------------------------------------------------------------" << endl;
+
+                                    file.close();
+                                    goto Main;
+                                }
+                            }
+                            else goto Enter_password_admin_2;
+                        }
+
+                        if (admin->get_CARD(atm_card_num) == nullptr) {
+                            cout << "세션 종료" << endl;
+                            goto Main;
+                        }
+
+                        else if (admin->get_CARD(atm_card_num) != nullptr) {
+                            CARD* use_card = admin->get_CARD(atm_card_num);
+
+                            if (use_atm->getSM() == 0 and !(isPrimary(use_atm, use_card->get_card_acc()))) {
+                                cout << "오류 : Single 유형 ATM에서는 오직 주거래 은행만 사용할 수 있습니다." << endl;
+                                cout << "세션 종료" << endl;
+                                goto Main;
+                            }
+
+                            else {
+                                int count = 0;
+                            Enter_password_Korean:
+                                cout << "┏━━━━━━━━━━━━━━━ ATM ━━━━━━━━━━━━━━━┓" << endl;
+                                cout << "┃         비밀번호를 입력해주세요          ┃" << endl;
+                                cout << "┃                                   ┃" << endl;
+                                cout << "┃ 0 : 취소 (ATM 종료, 메인으로 이동)      ┃" << endl;
+                                cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+                                cin >> atm_card_password;
+                                if (invalid_cin(cin)) {
+                                    print_invalid_input(0);
+                                    goto Enter_password_Korean;
+                                }
+                                if (count == 2) {
+                                    cout << "오류 : 비밀번호를 3회 틀렸습니다." << endl;
+                                    cout << "세선 종료" << endl;
+                                    goto Main;
+                                }
+                                else if (count < 3 and atm_card_password != use_card->get_card_pw()) {
+                                    cout << "오류 : 틀린 비밀번호입니다." << endl;
+                                    count++;
+                                    goto Enter_password_Korean;
+                                }
+                                else if (count < 3 and atm_card_password == use_card->get_card_pw()) {
+                                    int count_withdrawal_1 = 0;
+                                    int user_num = 0;
+                                    initializeFile(user_txt);
+                                ATM_task_Korean:
+                                    if (use_atm->getATM_Money() == 0) {
+                                        cout << "오류 : ATM에 돈이 없어유~" << endl;
+                                        cout << "세션 종료" << endl;
+                                        ifstream file;
+                                        file.open("USER.txt");
+
+                                        if (!file.is_open()) {
+                                            cout << "파일이 안 열려요!" << endl;
+                                        }
+
+                                        string line;
+                                        cout << "------------------------------ 세션 거래 내역 ------------------------------" << endl;
+                                        while (!file.eof()) {
+                                            getline(file, line);
+                                            cout << line << endl;
+                                        }
+                                        cout << "------------------------------------------------------------------------" << endl;
+
+                                        file.close();
+                                        goto Main;
+                                    }
+                                    user_num++;
+                                    cout << "┏━━━━━━━━━━━━━ ATM ━━━━━━━━━━━━━┓" << endl;
+                                    cout << "┃ 업무 종류를 선택해주세요            ┃" << endl;
+                                    cout << "┃-------------------------------┃" << endl;
+                                    cout << "┃ 1 : 입금                       ┃" << endl;
+                                    cout << "┃ 2 : 출금                       ┃" << endl;
+                                    cout << "┃ 3 : 송금 (현금 이용)             ┃" << endl;
+                                    cout << "┃ 4 : 송금 (계좌 이용)             ┃" << endl;
+                                    cout << "┃                               ┃" << endl;
+                                    cout << "┃ 0 : 취소 (ATM 종료, 메인으로 이동)  ┃" << endl;
+                                    cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+                                    cin >> index;
+                                    if (invalid_cin(cin)) {
+                                        print_invalid_input(0);
+                                        goto ATM_task_Korean;
+                                    }
+                                    if (index == 0) {
+                                        ifstream file;
+                                        file.open("USER.txt");
+
+                                        if (!file.is_open()) {
+                                            cout << "파일이 안 열려요!" << endl;
+                                        }
+
+                                        string line;
+                                        cout << "------------------------------ 세션 거래 내역 ------------------------------" << endl;
+                                        while (!file.eof()) {
+                                            getline(file, line);
+                                            cout << line << endl;
+                                        }
+                                        cout << "------------------------------------------------------------------------" << endl;
+
+                                        file.close();
+                                        goto Main;
+                                    }
+
+                                    else if (index == 1) {
+                                        TR_DEPOSIT* tr_deposit = new TR_DEPOSIT(use_card->get_card_acc()->get_owner(), use_atm, use_card->get_card_acc(), use_card, atm_language, user_num);
+                                        delete tr_deposit;
+                                        goto ATM_task_Korean;
+                                    }
+
+                                    else if (index == 2) {
+                                        count_withdrawal_1++;
+                                        if (count_withdrawal_1 == 4) {
+                                            cout << "하나의 세션에 출금은 3회만 가능합니다." << endl;
+                                            cout << "세션 종료" << endl;
+                                            ifstream file;
+                                            file.open("USER.txt");
+
+                                            if (!file.is_open()) {
+                                                cout << "파일이 안 열려요!" << endl;
+                                            }
+
+                                            string line;
+                                            cout << "------------------------------ 세션 거래 내역 ------------------------------" << endl;
+                                            while (!file.eof()) {
+                                                getline(file, line);
+                                                cout << line << endl;
+                                            }
+                                            cout << "------------------------------------------------------------------------" << endl;
+
+                                            file.close();
+                                            goto Main;
+                                        }
+                                        else {
+                                            TR_WITHDRAWAL* tr_withdrawal = new TR_WITHDRAWAL(use_card->get_card_acc()->get_owner(), use_atm, use_card->get_card_acc(), use_card, atm_language, user_num);
+                                            delete tr_withdrawal;
+                                            goto ATM_task_Korean;
+                                        }
+                                    }
+
+                                    else if (index == 3) {
+                                        TR_SEND_C* tr_send_c = new TR_SEND_C(admin, use_atm, use_card->get_card_acc(), use_card->get_card_acc()->get_owner(), use_card, atm_language, user_num);
+                                        delete tr_send_c;
+                                        goto ATM_task_Korean;
+                                    }
+
+                                    else if (index == 4) {
+                                        TR_SEND_A* tr_send_a = new TR_SEND_A(admin, use_atm, use_card->get_card_acc(), use_card->get_card_acc()->get_owner(), use_card, atm_language, user_num);
+                                        delete tr_send_a;
+                                        goto ATM_task_Korean;
+                                    }
+                                }
+
+                            }
+                        }
+                    }
+                }
+
+                else {
+                unilingual_ATM_insertcard:
+                    cout << "┏━━━━━━━━━━━━━━━━ ATM ━━━━━━━━━━━━━━━┓" << endl;
+                    cout << "┃             Insert Card            ┃" << endl;
+                    cout << "┃                                    ┃" << endl;
+                    cout << "┃ 0 : Cancel (Go to Main)            ┃" << endl;
+                    cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+                    cin >> atm_card_num;
+                    if (invalid_cin(cin)) {
+                        print_invalid_input(0);
+                        goto bilingual_ATM_insertcard_English;
+                    }
+
+                    if (atm_card_num == "admin") {
+                        string admin_pw;
+                    Enter_password_admin_3:
+                        cout << "┏━━━━━━━━━━━━━━━ ATM ━━━━━━━━━━━━━━━┓" << endl;
+                        cout << "┃         Enter the password        ┃" << endl;
+                        cout << "┃                                   ┃" << endl;
+                        cout << "┃ 0 : Cancel (Go to Main)           ┃" << endl;
+                        cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+                        cin >> admin_pw;
+
+                        if (admin_pw == "0")
+                            goto Main;
+                        if (admin_pw == "admin") {
+                            cout << "┏━━━━━━━━━━━━━━━━ ATM ━━━━━━━━━━━━━━━┓" << endl;
+                            cout << "┃ 1. Transaction History             ┃" << endl;
+                            cout << "┃                                    ┃" << endl;
+                            cout << "┃ 0 : Cancel (Go to Main)            ┃" << endl;
+                            cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+                            cin >> admin_input;
+                            if (invalid_cin(cin) or (admin_input != 0 and admin_input != 1)) {
+                                print_invalid_input(0);
+                                goto Main;
+                            }
+
+                            else if (admin_input == 0)
+                                goto Main;
+
+                            else if (admin_input == 1) {
+                                string name = to_string(use_atm->getSN()) + "ATM.txt";
+                                ifstream file;
+                                file.open(name);
+
+                                if (!file.is_open()) {
+                                    cout << "파일이 안 열려요!" << endl;
+                                }
+
+                                string line;
+                                cout << "------------------------------ Transaction history ------------------------------" << endl;
+                                while (!file.eof()) {
+                                    getline(file, line);
+                                    cout << line << endl;
+                                }
+                                cout << "---------------------------------------------------------------------------------" << endl;
+
+                                file.close();
+                                goto Main;
+                            }
+                        }
+                        else goto Enter_password_admin_3;
+                    }
+
+                    if (admin->get_CARD(atm_card_num) == nullptr) {
+                        cout << "Session End ( No Card )" << endl;
+                        goto Main;
+                    }
+
+                    else if (admin->get_CARD(atm_card_num) != nullptr) {
+                        CARD* use_card = admin->get_CARD(atm_card_num);
+
+
+                        if (use_atm->getSM() == 0 and !(isPrimary(use_atm, use_card->get_card_acc()))) {
+                            cout << "Error : Single type ATM can use only Primary bank card." << endl;
+                            cout << "Session End" << endl;
+                            goto Main;
+                        }
+
+                        else {
+                            int count = 0;
+                        Enter_password_unilingual:
+                            cout << "┏━━━━━━━━━━━━━━━ ATM ━━━━━━━━━━━━━━━┓" << endl;
+                            cout << "┃           Enter Password          ┃" << endl;
+                            cout << "┃                                   ┃" << endl;
+                            cout << "┃ 0 : Cancel (Go to Main)           ┃" << endl;
+                            cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+                            cin >> atm_card_password;
+                            if (invalid_cin(cin)) {
+                                print_invalid_input(0);
+                                goto Enter_password_unilingual;
+                            }
+                            if (count == 2) {
+                                cout << "Error : You entered wrong password for 3 times." << endl;
+                                cout << "Session End" << endl;
+                                goto Main;
+                            }
+                            else if (count < 3 and atm_card_password != use_card->get_card_pw()) {
+                                cout << "Error : Wrong Password" << endl;
+                                count++;
+                                goto Enter_password_unilingual;
+                            }
+                            else if (count < 3 and atm_card_password == use_card->get_card_pw()) {
+                                int count_withdrawal_unilingual = 0;
+                                int user_num = 0;
+                                initializeFile(user_txt);
+                            ATM_task_unilingual:
+                                if (use_atm->getATM_Money() == 0) {
+                                    cout << "Error : There is no money in this ATM" << endl;
+                                    cout << "Session End" << endl;
+                                    ifstream file;
+                                    file.open("USER.txt");
+
+                                    if (!file.is_open()) {
+                                        cout << "파일이 안 열려요!" << endl;
+                                    }
+
+                                    string line;
+                                    cout << "------------------------------ Session Transaction History ------------------------------" << endl;
+                                    while (!file.eof()) {
+                                        getline(file, line);
+                                        cout << line << endl;
+                                    }
+                                    cout << "-----------------------------------------------------------------------------------------" << endl;
+
+                                    file.close();
+                                    goto Main;
+                                }
+                                user_num += 1;
+                                cout << "┏━━━━━━━━━━━━━ ATM ━━━━━━━━━━━━━┓" << endl;
+                                cout << "┃ Please select a task type.    ┃" << endl;
+                                cout << "┃-------------------------------┃" << endl;
+                                cout << "┃ 1 : Deposit                   ┃" << endl;
+                                cout << "┃ 2 : Withdrawal                ┃" << endl;
+                                cout << "┃ 3 : Transfer (Using Cash)     ┃" << endl;
+                                cout << "┃ 4 : Transfer (Using Account)  ┃" << endl;
+                                cout << "┃                               ┃" << endl;
+                                cout << "┃ 0 : Cancel (Go to Main)       ┃" << endl;
+                                cout << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n> ";
+                                cin >> index;
+                                if (invalid_cin(cin)) {
+                                    print_invalid_input(0);
+                                    goto ATM_task_unilingual;
+                                }
+
+                                if (index == 0) {
+                                    ifstream file;
+                                    file.open("USER.txt");
+
+                                    if (!file.is_open()) {
+                                        cout << "파일이 안 열려요!" << endl;
+                                    }
+
+                                    string line;
+                                    cout << "------------------------------ Session Transaction History ------------------------------" << endl;
+                                    while (!file.eof()) {
+                                        getline(file, line);
+                                        cout << line << endl;
+                                    }
+                                    cout << "-----------------------------------------------------------------------------------------" << endl;
+
+                                    file.close();
+                                    goto Main;
+                                }
+
+                                else if (index == 1) {
+                                    TR_DEPOSIT* tr_deposit = new TR_DEPOSIT(use_card->get_card_acc()->get_owner(), use_atm, use_card->get_card_acc(), use_card, atm_language, user_num);
+                                    delete tr_deposit;
+                                    goto ATM_task_unilingual;
+                                }
+
+                                else if (index == 2) {
+                                    count_withdrawal_unilingual++;
+                                    if (count_withdrawal_unilingual == 4) {
+                                        cout << "You can withdraw only 3 times in one session." << endl;
+                                        cout << "Session end" << endl;
+                                        ifstream file;
+                                        file.open("USER.txt");
+
+                                        if (!file.is_open()) {
+                                            cout << "파일이 안 열려요!" << endl;
+                                        }
+
+                                        string line;
+                                        cout << "------------------------------ Session Transaction History ------------------------------" << endl;
+                                        while (!file.eof()) {
+                                            getline(file, line);
+                                            cout << line << endl;
+                                        }
+                                        cout << "-----------------------------------------------------------------------------------------" << endl;
+
+                                        file.close();
+                                        goto Main;
+
+                                    }
+                                    else {
+                                        TR_WITHDRAWAL* tr_withdrawal = new TR_WITHDRAWAL(use_card->get_card_acc()->get_owner(), use_atm, use_card->get_card_acc(), use_card, atm_language, user_num);
+                                        delete tr_withdrawal;
+                                        goto ATM_task_unilingual;
+                                    }
+                                }
+
+                                else if (index == 3) {
+                                    TR_SEND_C* tr_send_c = new TR_SEND_C(admin, use_atm, use_card->get_card_acc(), use_card->get_card_acc()->get_owner(), use_card, atm_language, user_num);
+                                    delete tr_send_c;
+                                    goto ATM_task_unilingual;
+                                }
+
+                                else if (index == 4) {
+                                    TR_SEND_A* tr_send_a = new TR_SEND_A(admin, use_atm, use_card->get_card_acc(), use_card->get_card_acc()->get_owner(), use_card, atm_language, user_num);
+                                    delete tr_send_a;
+                                    goto ATM_task_unilingual;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        else if (main_task == 4) {
+            print_all_information(admin);
+            goto Main;
+        }
+    }
+};
