@@ -2167,7 +2167,7 @@ int main() {
         
                     if (atmChoice == 0) {
                         cout << (ui.getLanguage() ? "Returning to main menu..." : "메인 메뉴로 돌아갑니다...") << endl;
-                        break;
+                        break; // 초기 메뉴로 돌아감
                     }
         
                     if (atmChoice > 0 && atmChoice <= static_cast<int>(atm_list.size())) {
@@ -2182,28 +2182,26 @@ int main() {
                 // 카드 삽입 및 인증
                 int retryCount = 0;
                 const int maxRetries = 3; // 최대 비밀번호 입력 시도 횟수
-        
                 while (retryCount < maxRetries) {
                     ui.showTransitionMessage(ui.getLanguage() ? "Insert your card." : "카드를 삽입하세요.");
                     string cardNumber;
-                    
+        
                     cout << (ui.getLanguage() ? "Enter your card number (or '0' to return): " : "카드 번호를 입력하세요 (0을 입력하면 돌아갑니다): ");
                     cin >> cardNumber;
-                    
-                    cin.ignore();
                     cin.get();
         
                     if (cardNumber == "0") {
                         cout << (ui.getLanguage() ? "Returning to main menu..." : "메인 메뉴로 돌아갑니다...") << endl;
-                        break;
+                        break; // 루프 종료
                     }
         
+                    // 카드 번호 유효성 검사
                     if (cardNumber.empty() || cardNumber.length() != 12 || !std::all_of(cardNumber.begin(), cardNumber.end(), ::isdigit)) {
                         cout << (ui.getLanguage() ? "Invalid card number. Please try again.\n" : "유효하지 않은 카드 번호입니다. 다시 시도하세요.\n");
-                        continue;
+                        continue; // 루프 재시작
                     }
         
-                    // 단일 은행 ATM 모드에서 다른 은행 카드 처리
+                    // 단일 은행 ATM 모드에서 카드 은행 번호 확인
                     if (selectedATM->issinglemode()) {
                         string atmBankNumber = selectedATM->getatmbank();
                         string cardBankNumber = cardNumber.substr(0, 4);
@@ -2211,7 +2209,7 @@ int main() {
                         if (atmBankNumber != cardBankNumber) {
                             cout << (ui.getLanguage() ? "Invalid card. This ATM only supports the bank it belongs to.\n"
                                                       : "유효하지 않은 카드입니다. 이 ATM은 해당 은행의 카드만 지원합니다.\n");
-                            continue;
+                            continue; // 루프 재시작
                         }
                     }
         
@@ -2222,28 +2220,29 @@ int main() {
                     for (auto bank : bank_list) {
                         if (bank->getBankNumber() == cardNumber.substr(0, 4)) {
                             targetBank = bank;
-                            break;
+                            break; // 은행 찾음
                         }
                     }
         
                     if (!targetBank) {
                         cout << (ui.getLanguage() ? "Bank associated with card not found. Please try again.\n" : "카드와 연결된 은행을 찾을 수 없습니다. 다시 시도하세요.\n");
-                        continue;
+                        continue; // 루프 재시작
                     }
         
                     for (int i = 0; i < targetBank->getNumOfAccounts(); ++i) {
                         Account* account = targetBank->getAccount(i);
                         if (account && account->getCardNumber() == cardNumber) {
                             targetAccount = account;
-                            break;
+                            break; // 계좌 찾음
                         }
                     }
         
                     if (!targetAccount) {
                         cout << (ui.getLanguage() ? "Account associated with card not found. Please try again.\n" : "카드와 연결된 계좌를 찾을 수 없습니다. 다시 시도하세요.\n");
-                        continue;
+                        continue; // 루프 재시작
                     }
         
+                    // 비밀번호 입력
                     string password;
                     cout << (ui.getLanguage() ? "Enter your password: " : "비밀번호를 입력하세요: ");
                     cin >> password;
@@ -2255,13 +2254,13 @@ int main() {
                             cout << (ui.getLanguage() ? "Try again.\n" : "다시 시도하세요.\n");
                         } else {
                             cout << (ui.getLanguage() ? "Max retries exceeded. Returning to main menu.\n" : "최대 시도 횟수를 초과했습니다. 메인 메뉴로 돌아갑니다.\n");
-                            break;
+                            break; // 루프 종료
                         }
                     } else {
                         ui.clearScreen();
                         cout << (ui.getLanguage() ? "Card authentication successful." : "카드 인증 성공.") << endl;
                         selectedATM->userMenu(); // 사용자 메뉴 호출
-                        break;
+                        break; // 루프 종료
                     }
                 }
             }
