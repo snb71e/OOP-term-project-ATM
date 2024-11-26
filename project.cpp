@@ -633,13 +633,13 @@ private:
     bool isSingleBankMode; // Single Bank 모드 여부
 
 public:
-    ATM(Bank* atmBank, bool issingle, int arr[4], const string& atmId) 
-        : bank(atmBank), isSingleBankMode(issingle), atmID(atmId) {
-        //atmBankNumber = atmBank->getBankNumber(); // 연결된 은행 번호 설정
+    ATM(Bank* atmBank, bool issingle, int arr[4], const string& atmId, Interface* uiinterface)
+        : bank(atmBank), isSingleBankMode(issingle), atmID(atmId), ui(uiinterface) {
         for (int i = 0; i < 4; ++i) {
             cash[i] = arr[i];
         }
     }
+
     string getatmNumber() { return atmNumber; }
     string getremainingcash(int i) { return to_string(cash[i]); }
 
@@ -680,15 +680,16 @@ public:
 
 class singleATM : public ATM {
 public:
-    singleATM(Bank* bank, bool issingle, int arr[4], const string& id)
-        : ATM(bank, issingle, arr, id) {}
-
+    singleATM(Bank* bank, bool issingle, int arr[4], const string& id, Interface* ui)
+        : ATM(bank, issingle, arr, id, ui) {}
 };
+
 class multiATM : public ATM {
 public:
-    multiATM(Bank* bank, bool issingle, int arr[4], const string& id)
-        : ATM(bank, issingle, arr, id) {}
+    multiATM(Bank* bank, bool issingle, int arr[4], const string& id, Interface* ui)
+        : ATM(bank, issingle, arr, id, ui) {}
 };
+
 
 void display_atm() {
     for (int i = 0; i < num_of_ATM; i++) {
@@ -773,16 +774,18 @@ void Bank::CreateATM() {
         cout << (ui->getLanguage() ? "Creating the ATM..." : "ATM 생성 중 ...") << endl;
 
         if (isSingle) {
-            string uniqueID = bank_list[bank_index]->getBankNumber() + 
+            string uniqueID = bank_list[bank_index]->getBankNumber() +
                               to_string(atm_list.size() + 1).insert(0, 2 - to_string(atm_list.size() + 1).length(), '0');
-            atm_list.push_back(new singleATM(bank_list[bank_index], isSingle, cashes, uniqueID));
+            atm_list.push_back(new singleATM(bank_list[bank_index], isSingle, cashes, uniqueID, ui));
             cout << (ui->getLanguage() ? "Single ATM created with ID: " : "단일 ATM 생성됨, ID: ") << uniqueID << endl;
         } else {
-            string uniqueID = bank_list[bank_index]->getBankNumber() + 
+            string uniqueID = bank_list[bank_index]->getBankNumber() +
                               to_string(atm_list.size() + 1).insert(0, 2 - to_string(atm_list.size() + 1).length(), '0');
-            atm_list.push_back(new multiATM(bank_list[bank_index], isSingle, cashes, uniqueID));
+            atm_list.push_back(new multiATM(bank_list[bank_index], isSingle, cashes, uniqueID, ui));
             cout << (ui->getLanguage() ? "Multi ATM created with ID: " : "다중 ATM 생성됨, ID: ") << uniqueID << endl;
         }
+
+
 
     }
 }
@@ -1015,46 +1018,43 @@ void ATM::adminMenu() {
 }
 void ATM::userMenu() {
     while (true) {
-        ui->showUserMenu(); // 사용자 메뉴 출력
+        ui->showUserMenu();
         string selection;
         cin >> selection;
 
         if (selection == "/") {
-            // 거래 내역을 출력
             display_atm();
             display_account();
-            // display_history(account->getCardNumber());
-            continue;  // 다시 메뉴로 돌아감
-        }
-        else if (selection == "admin") {
-            // 관리자 메뉴로 이동
+            continue;
+        } else if (selection == "admin") {
             adminMenu();
             continue;
         }
 
-        // 숫자 입력일 경우에는 기존 메뉴 처리
-        int option = stoi(selection); // 선택을 숫자 옵션으로 변환
-        if (option == 1) {
-            bool success = deposit();  // 입금 기능 호출
-            if (!success) continue; // 실패 시 다시 메뉴로 돌아가도록
-        }
-        else if (option == 2) {
-            bool success = withdraw();  // 출금 기능 호출
-            if (!success) continue; // 실패 시 다시 메뉴로 돌아가도록
-        }
-        else if (option == 3) {
-            bool success = transfer();  // 송금 기능 호출
-            if (!success) continue; // 실패 시 다시 메뉴로 돌아가도록
-        }
-        else if (option == 4) {
-            cout << (ui->getLanguage() ? "Exiting ATM. Please take your card.\n" : "ATM을 종료합니다. 카드를 가져가세요.\n");
-            break; // 사용자 메뉴 종료
-        }
-        else {
-            cout << (ui->getLanguage() ? "Invalid option. Please try again.\n" : "잘못된 선택입니다. 다시 시도해 주세요.\n");
+        try {
+            int option = stoi(selection);
+            switch (option) {
+                case 1:
+                    if (!deposit()) continue;
+                    break;
+                case 2:
+                    if (!withdraw()) continue;
+                    break;
+                case 3:
+                    if (!transfer()) continue;
+                    break;
+                case 4:
+                    cout << (ui->getLanguage() ? "Exiting ATM. Please take your card.\n" : "ATM을 종료합니다. 카드를 가져가세요.\n");
+                    return;
+                default:
+                    cout << (ui->getLanguage() ? "Invalid option. Please try again.\n" : "잘못된 선택입니다. 다시 시도해 주세요.\n");
+            }
+        } catch (const std::exception&) {
+            cout << (ui->getLanguage() ? "Invalid input. Please enter a valid option.\n" : "유효하지 않은 입력입니다. 올바른 옵션을 입력하세요.\n");
         }
     }
 }
+
 bool ATM::authenticateUser(Card& card) {
     string inputPassword;
     int attempts = 0;
@@ -2010,10 +2010,10 @@ int main() {
                         string atmId = generateAtmID(bank_list[bank_index]->getBankNumber(), atm_list.size());
 
                         if (issingle) {
-                            atm_list.push_back(new singleATM(bank_list[bank_index], issingle, cashes, atmId));
+                            atm_list.push_back(new singleATM(bank_list[bank_index], issingle, cashes, atmId, &ui));
                             break;
                         } else {
-                            atm_list.push_back(new multiATM(bank_list[bank_index], issingle, cashes, atmId));
+                            atm_list.push_back(new multiATM(bank_list[bank_index], issingle, cashes, atmId, &ui));
                             break;
                         }
 
