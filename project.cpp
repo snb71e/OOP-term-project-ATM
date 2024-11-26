@@ -556,7 +556,12 @@ public:
         printSeparator();
         printCentered(isEng ? "ATM Management" : "ATM 관리", 70);
         printSeparator();
-        ///////////////////////////////
+
+        printTwoBoxes(isEng ? "1. Add ATM" : "1. ATM 추가", isEng ? "2. Remove ATM" : "2. ATM 삭제");
+
+        printTwoBoxes(isEng ? "3. View ATM" : "3. ATM 목록 조회", isEng ? "4. Return to Main Menu" : "4. 메인 메뉴로 돌아가기");
+
+        printSeparator();
     }
 
     void handleBankManagement() {
@@ -1827,6 +1832,7 @@ int main() {
     Interface ui;
     vector<ATM*> atm_list;
     vector<Bank*> bank_list; // 여러 은행을 저장할 벡터
+    int current_atm_num;
 
     // 프로그램 루프
     while (true) {
@@ -2071,10 +2077,23 @@ int main() {
             }
         }
         else if (startSelection == 4) { // 카드 삽입
-            ui.clearScreen(); // 이전 화면 제거
-            ui.showTransitionMessage(ui.getLanguage() ? "Insert your card." : "카드를 삽입하세요.");
-
+            
             while (true) {
+                ui.clearScreen(); // 이전 화면 제거
+                ///////////// ATM 선택
+                if (atm_list.empty()) { // ATM이 존재하지 않는 경우
+                    cout << (ui.getLanguage() ? "Please create an ATM first." : "먼저 ATM을 생성해 주세요.") << endl;
+                }
+                cout << (ui.getLanguage() ? "Select ATM for transaction." : "거래를 진행할 ATM을 선택해 주세요.") << endl;
+                atm_list[0]->getatminformation();
+                while (true) { // ATM 선택
+                    cin >> current_atm_num;
+                    if (current_atm_num <= 0) {
+                        cout << (ui.getLanguage() ? "Enter a valid value." : "올바른 값을 입력해 주세요.") << endl;
+                    }
+                }
+
+                ui.showTransitionMessage(ui.getLanguage() ? "Insert your card." : "카드를 삽입하세요.");
                 string cardNumber;
                 cout << (ui.getLanguage() ? "Enter your card number (or '0' to return): " : "카드 번호를 입력하세요 (0을 입력하면 메인 메뉴로 돌아갑니다): ");
                 cin >> cardNumber;
@@ -2135,14 +2154,14 @@ int main() {
                 // 인증 성공 시 사용자 메뉴 호출
                 ui.clearScreen(); // 이전 화면 제거
                 cout << (ui.getLanguage() ? "Card authentication successful." : "카드 인증 성공.") << endl;
-                atm.userMenu();  // 사용자 메뉴 호출
+                atm_list[current_atm_num]->userMenu();  // 사용자 메뉴 호출
                 break;
             }
         }
         else if (startSelection == 5) {  // 거래 내역 보기
             ui.clearScreen();
             cout << (ui.getLanguage() ? "Displaying transaction history..." : "거래 내역을 표시합니다...") << endl;
-            atm.display_history(myAccount->getCardNumber());  // 해당 계좌의 거래 내역 출력
+            atm_list[current_atm_num]->display_history(myAccount->getCardNumber());  // 해당 계좌의 거래 내역 출력
             cout << (ui.getLanguage() ? "Press Enter to continue..." : "계속하려면 Enter를 누르세요...");
             cin.ignore();
             cin.get();
