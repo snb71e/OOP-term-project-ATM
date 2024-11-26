@@ -633,14 +633,11 @@ private:
     bool isSingleBankMode; // Single Bank 모드 여부
 
 public:
-    ATM(Bank* atmBank, bool issingle, int arr[4], const string& atmId) : bank(atmBank), isSingleBankMode(issingle), atmID(atmId){
-        //bank = atmBank;
-        //isSingleBankMode = issingle;
-        //atmID = atmID++;
-        //cash[4] = arr[4];
-        //atm_list.push_back(this);
+    ATM(Bank* atmBank, bool issingle, int arr[4], const string& atmId) 
+        : bank(atmBank), isSingleBankMode(issingle), atmID(atmId) {
+        //atmBankNumber = atmBank->getBankNumber(); // 연결된 은행 번호 설정
         for (int i = 0; i < 4; ++i) {
-            cash[i] = arr[i]; // cash 배열 복사
+            cash[i] = arr[i];
         }
     }
     string getatmNumber() { return atmNumber; }
@@ -955,7 +952,7 @@ string ATM::trim(const string& str) {
     return str.substr(first, (last - first + 1));
 }
 string ATM::getBankNumber() {
-    return trim(bank->getBankNumber()); // 기존 코드에 trim 적용
+    return bank->getBankNumber(); // 기존 코드에 trim 적용
 }
 
 bool ATM::insertCard() {
@@ -2183,7 +2180,8 @@ int main() {
                 int retryCount = 0;
                 const int maxRetries = 3; // 최대 비밀번호 입력 시도 횟수
                 while (retryCount < maxRetries) {
-                    ui.showTransitionMessage(ui.getLanguage() ? "Insert your card." : "카드를 삽입하세요.");
+                    ui.clearScreen();
+                    /*ui.showTransitionMessage*/cout << (ui.getLanguage() ? "Insert your card." : "카드를 삽입하세요.");
                     string cardNumber;
         
                     cout << (ui.getLanguage() ? "Enter your card number (or '0' to return): " : "카드 번호를 입력하세요 (0을 입력하면 돌아갑니다): ");
@@ -2203,7 +2201,7 @@ int main() {
         
                     // 단일 은행 ATM 모드에서 카드 은행 번호 확인
                     if (selectedATM->issinglemode()) {
-                        string atmBankNumber = selectedATM->getatmbank();
+                        string atmBankNumber = selectedATM->getBankNumber();
                         string cardBankNumber = cardNumber.substr(0, 4);
         
                         if (atmBankNumber != cardBankNumber) {
