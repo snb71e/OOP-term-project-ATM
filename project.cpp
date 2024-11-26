@@ -2146,7 +2146,7 @@ int main() {
                 ui.clearScreen(); // 이전 화면 제거
                 if (atm_list.empty()) { // ATM이 존재하지 않는 경우
                     cout << (ui.getLanguage() ? "Please create an ATM first." : "먼저 ATM을 생성해 주세요.") << endl;
-                    return 0; // 반환값 추가
+                    break;
                 }
         
                 // ATM 목록 출력
@@ -2167,7 +2167,7 @@ int main() {
         
                     if (atmChoice == 0) {
                         cout << (ui.getLanguage() ? "Returning to main menu..." : "메인 메뉴로 돌아갑니다...") << endl;
-                        return 0; // 반환값 추가
+                        break;
                     }
         
                     if (atmChoice > 0 && atmChoice <= static_cast<int>(atm_list.size())) {
@@ -2191,12 +2191,24 @@ int main() {
         
                     if (cardNumber == "0") {
                         cout << (ui.getLanguage() ? "Returning to main menu..." : "메인 메뉴로 돌아갑니다...") << endl;
-                        return 0; // 반환값 추가
+                        break;
                     }
         
                     if (cardNumber.empty() || cardNumber.length() != 12 || !std::all_of(cardNumber.begin(), cardNumber.end(), ::isdigit)) {
                         cout << (ui.getLanguage() ? "Invalid card number. Please try again.\n" : "유효하지 않은 카드 번호입니다. 다시 시도하세요.\n");
                         continue;
+                    }
+        
+                    // 단일 은행 ATM 모드에서 다른 은행 카드 처리
+                    if (selectedATM->issinglemode()) {
+                        string atmBankNumber = selectedATM->getatmbank();
+                        string cardBankNumber = cardNumber.substr(0, 4);
+        
+                        if (atmBankNumber != cardBankNumber) {
+                            cout << (ui.getLanguage() ? "Invalid card. This ATM only supports the bank it belongs to.\n"
+                                                      : "유효하지 않은 카드입니다. 이 ATM은 해당 은행의 카드만 지원합니다.\n");
+                            continue;
+                        }
                     }
         
                     // 은행 및 계좌 탐색
@@ -2239,13 +2251,13 @@ int main() {
                             cout << (ui.getLanguage() ? "Try again.\n" : "다시 시도하세요.\n");
                         } else {
                             cout << (ui.getLanguage() ? "Max retries exceeded. Returning to main menu.\n" : "최대 시도 횟수를 초과했습니다. 메인 메뉴로 돌아갑니다.\n");
-                            return 0; // 반환값 추가
+                            break;
                         }
                     } else {
                         ui.clearScreen();
                         cout << (ui.getLanguage() ? "Card authentication successful." : "카드 인증 성공.") << endl;
                         selectedATM->userMenu(); // 사용자 메뉴 호출
-                        return 0; // 반환값 추가
+                        break;
                     }
                 }
             }
