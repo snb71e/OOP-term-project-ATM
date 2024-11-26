@@ -583,7 +583,13 @@ private:
 
 public:
     record(string id, string card, string type, int amt)
-        : transactionID(id), cardnumber(card), transaction_type(type), amount(amt) {}
+        : transactionID(id), cardnumber(card), transaction_type(type), amount(amt) {
+        transactionID = id;
+        cardnumber = card;
+        transaction_type = type;
+        amount = amt;
+        //transaction_records[num_of_transaction++] = this;
+    }
 
     string gettransactionID() { return transactionID; }
     string getcardnumber() { return cardnumber; }
@@ -1017,42 +1023,65 @@ void ATM::adminMenu() {
     }
 }
 void ATM::userMenu() {
+    if (ui == nullptr) {
+        cout << "Error: UI interface is not initialized.\n";
+        return;
+    }
+
+    cout << "Entering userMenu..." << endl;
+
     while (true) {
+        cout << "Displaying user menu..." << endl;
         ui->showUserMenu();
+        cout << (ui->getLanguage() ? "Select an option: " : "옵션을 선택하세요: ");
+        
         string selection;
         cin >> selection;
 
+        if (selection.empty()) {
+            cout << (ui->getLanguage() ? "Invalid input. Please try again.\n" : "잘못된 입력입니다. 다시 시도해 주세요.\n");
+            continue;
+        }
+
         if (selection == "/") {
+            cout << "Displaying ATM and account details..." << endl;
             display_atm();
             display_account();
             continue;
         } else if (selection == "admin") {
+            cout << "Accessing admin menu..." << endl;
             adminMenu();
             continue;
         }
 
-        try {
-            int option = stoi(selection);
-            switch (option) {
-                case 1:
-                    if (!deposit()) continue;
-                    break;
-                case 2:
-                    if (!withdraw()) continue;
-                    break;
-                case 3:
-                    if (!transfer()) continue;
-                    break;
-                case 4:
-                    cout << (ui->getLanguage() ? "Exiting ATM. Please take your card.\n" : "ATM을 종료합니다. 카드를 가져가세요.\n");
-                    return;
-                default:
-                    cout << (ui->getLanguage() ? "Invalid option. Please try again.\n" : "잘못된 선택입니다. 다시 시도해 주세요.\n");
+        // 숫자 입력 처리
+        if (selection == "1") {
+            cout << "Selected Deposit menu..." << endl;
+            bool success = deposit();
+            if (!success) {
+                cout << "Deposit failed. Returning to user menu..." << endl;
             }
-        } catch (const std::exception&) {
-            cout << (ui->getLanguage() ? "Invalid input. Please enter a valid option.\n" : "유효하지 않은 입력입니다. 올바른 옵션을 입력하세요.\n");
+        } else if (selection == "2") {
+            cout << "Selected Withdraw menu..." << endl;
+            bool success = withdraw();
+            if (!success) {
+                cout << "Withdraw failed. Returning to user menu..." << endl;
+            }
+        } else if (selection == "3") {
+            cout << "Selected Transfer menu..." << endl;
+            bool success = transfer();
+            if (!success) {
+                cout << "Transfer failed. Returning to user menu..." << endl;
+            }
+        } else if (selection == "4") {
+            cout << (ui->getLanguage() ? "Exiting ATM. Please take your card.\n" : "ATM을 종료합니다. 카드를 가져가세요.\n");
+            break;
+        } else {
+            cout << (ui->getLanguage() ? "Invalid option. Please try again.\n" : "잘못된 선택입니다. 다시 시도해 주세요.\n");
         }
     }
+
+    cout << "Exiting userMenu..." << endl;
 }
 
 bool ATM::authenticateUser(Card& card) {
@@ -1200,7 +1229,16 @@ void ATM::depositCash(Interface* ui, int& m1, int& m2, int& m3, int& m4) {
     }
 }
 bool ATM::deposit() {
-    int input;
+    cout << "Starting deposit process..." << endl;
+
+    if (ui == nullptr) {
+        cout << "Error: UI interface is not initialized." << endl;
+        return false;
+    }
+    if (account == nullptr) {
+        cout << "Error: Account is not initialized." << endl;
+        return false;
+    }
     string accountNumber = account->getAccountNumber();
     if (accountNumber.length() < 4) {
         cout << (ui->getLanguage() ? "Error: Account number too short. Length: " : "에러: 계좌번호가 너무 짧습니다. ") << accountNumber.length() << endl;
@@ -1210,8 +1248,10 @@ bool ATM::deposit() {
 
     while (true) {
         ui->showDepositMenu();
-        input = getValidInput((ui->getLanguage() ? "Select an option: " : "옵션을 선택하세요: "), ui);
-
+        int input;// = getValidInput((ui->getLanguage() ? "Select an option: " : "옵션을 선택하세요: "), ui);
+        cin >> input;
+        cin.ignore();
+        cin.get();
         if (input == 1) { // Cash Deposit
             int m1, m2, m3, m4, depositAmount;
 
