@@ -695,7 +695,8 @@ Account* Bank::make_account(string new_owner_name, string bankname, double initi
     cout << (ui->getLanguage() ? "- Bank Name: " : " - 은행 명: ") << bankname << "\n";
     cout << (ui->getLanguage() ? "- Account Number: " : " - 계좌 번호: ") << account_number << "\n";
     cout << (ui->getLanguage() ? "- Card Number: " : " - 카드 번호: ") << card_number << "\n";
-    cout << (ui->getLanguage() ? "- Initial Balance: " : " - 초기 잔액: ") << initial_balance << (ui->getLanguage() ? "won\n" : "원\n") << endl;
+    cout << (ui->getLanguage() ? "- Initial Balance: " : " - 초기 잔액: ") << initial_balance << (ui->getLanguage() ? "won\n" : "원\n");
+    cout << "======================================================================" << endl;
 
     return new_account;
 }
@@ -792,11 +793,7 @@ void ATM::adminMenu() {
         string selection;
         selection = globalinput_string();
 
-        //if (selection == "/") {
-        //    // 관리자일 경우 모든 거래 내역 출력
-        //    display_history("admin");
-        //    continue;  // 다시 메뉴로 돌아감
-        //}
+        
         if (selection == "1") {
             // 관리자 기능: 거래 내역 조회
             cout << (ui->getLanguage() ? "Viewing transaction history..." : "거래 내역 조회...") << endl;
@@ -868,12 +865,6 @@ void ATM::userMenu(ATM* selectedATM) {
         else if (selection == "4") {
             cout << (ui->getLanguage() ? "Exiting ATM. Please take your card.\n" : "ATM을 종료합니다. 카드를 가져가세요.\n");
             break;
-        }
-        else if (selection == "/") {
-            cout << "Displaying ATM and account details..." << endl;
-            display_atm();
-            display_account();
-            continue;
         }
         else if (selection == "admin") {
             cout << "Accessing admin menu..." << endl;
@@ -1893,6 +1884,9 @@ int main() {
                     int bankChoice = getIntegerInput(ui.getLanguage() ? "Enter the bank number: " : "은행 번호를 입력하세요: ");
                     if (bankChoice < 1 || bankChoice > static_cast<int>(bank_list.size())) {
                         cout << (ui.getLanguage() ? "Invalid bank selection.\n" : "잘못된 은행 선택입니다.\n");
+                        cout << (ui.getLanguage() ? "Press Enter to continue..." : "계속하려면 엔터 키를 누르세요...");
+                        cin.ignore();
+                        cin.get();
                         continue;
                     }
 
@@ -1904,9 +1898,15 @@ int main() {
 
                     if (selectedBank->deleteAccount(accountNumber)) {
                         cout << (ui.getLanguage() ? "Account removed successfully.\n" : "계좌가 성공적으로 삭제되었습니다.\n");
+                        cout << (ui.getLanguage() ? "Press Enter to continue..." : "계속하려면 엔터 키를 누르세요...");
+                        cin.ignore();
+                        cin.get();
                     }
                     else {
                         cout << (ui.getLanguage() ? "Error: Account number not found.\n" : "오류: 해당 계좌 번호를 찾을 수 없습니다.\n");
+                        cout << (ui.getLanguage() ? "Press Enter to continue..." : "계속하려면 엔터 키를 누르세요...");
+                        cin.ignore();
+                        cin.get();
                     }
                 }
                 else if (bankSelection == "5") { // 계좌 목록 조회
@@ -1935,15 +1935,6 @@ int main() {
                     // 메인 메뉴로 돌아가기
                     ui.showTransitionMessage(ui.getLanguage() ? "Returning to Main Menu..." : "메인 메뉴로 돌아갑니다...");
                     break;
-                }
-                else if (bankSelection == "/") {
-                    display_atm();
-                    display_account();
-                    cout << (ui.getLanguage() ? "Press Enter to continue..." : "계속하려면 엔터 키를 누르세요...");
-                    cin.ignore(); // 이전 입력의 개행 문자를 제거
-                    cin.get();
-                    continue;
-
                 }
                 else {
                     // 잘못된 입력 처리
@@ -2173,14 +2164,6 @@ int main() {
                     ui.showTransitionMessage(ui.getLanguage() ? "Returning to Main Menu..." : "메인 메뉴로 돌아갑니다...");
                     break;
                 }
-                else if (ATMSelection == "/") {
-                    display_atm();
-                    display_account();
-                    cout << (ui.getLanguage() ? "Press Enter to continue..." : "계속하려면 엔터 키를 누르세요...");
-                    cin.ignore(); // 이전 입력의 개행 문자를 제거
-                    cin.get();
-                    continue;
-                }
                 else {
                     // 잘못된 입력 처리
                     cout << (ui.getLanguage() ? "Invalid option. Try again.\n" : "잘못된 입력입니다. 다시 시도하세요.\n");
@@ -2401,15 +2384,6 @@ int main() {
                         exitToMainMenu = true;
                         break;
                     }
-                    else if (startSelection == "/") {
-                        display_atm();
-                        display_account();
-                        // 사용자에게 엔터 키를 누르도록 안내하고 대기
-                        cout << (ui.getLanguage() ? "Press Enter to continue..." : "계속하려면 엔터 키를 누르세요...");
-                        cin.ignore(); // 이전 입력의 개행 문자를 제거
-                        cin.get();    // 엔터 키 입력 대기
-                        // break; // 필요에 따라 유지하거나 제거합니다.
-                    }
                     else {
                         cout << (ui.getLanguage() ? "Invalid option. Try again." : "잘못된 입력입니다. 다시 시도하세요.") << endl;
                     }
@@ -2476,20 +2450,7 @@ int main() {
             exit(0);
             break;
         }
-        else if (startSelection == "/") {
-            // ATM 및 계정 정보를 표시하는 함수 호출
-            display_atm();
-            display_account();
-
-            // 사용자에게 Enter 키를 누르도록 안내
-            cout << (ui.getLanguage() ? "Press Enter to continue..." : "계속하려면 Enter 키를 누르세요...");
-            cin.ignore(); // 이전 입력의 개행 문자를 제거
-            cin.get();    // Enter 키 입력 대기
-
-            // 초기화면으로 돌아가기
-            ui.showStartScreen();
-            continue; // 메인 메뉴로 돌아가기
-        }
+        
 
         else {
             cout << (ui.getLanguage() ? "Invalid input. Try again.\n" : "잘못된 입력입니다. 다시 시도하세요.\n");
