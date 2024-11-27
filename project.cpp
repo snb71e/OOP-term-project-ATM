@@ -2032,7 +2032,7 @@ int main() {
                 }
                 else if (ATMSelection == "2") {
                     // ATM 삭제
-                                        if (atm_list.empty()) {
+                        if (atm_list.empty()) {
                         cout << (ui.getLanguage() ? "No ATM to delete." : "삭제할 ATM이 존재하지 않습니다.") << endl;
                         break;
                     }
@@ -2078,14 +2078,14 @@ int main() {
                         }
                     }
                 }
-                else if (ATMSelection == "3") { // ATM 목록 확인
-// ATM 삭제
+                else if (ATMSelection == "3") {
+                    // ATM 삭제
                     if (atm_list.empty()) {
                         cout << (ui.getLanguage() ? "No ATM to delete." : "삭제할 ATM이 존재하지 않습니다.") << endl;
                         break;
                     }
                     
-                    while (true) {
+                    while (true) { // ATM 목록 확인
                         cout << "=============================" << endl;
                         for (int i = 0; i < atm_list.size(); i++) {
                             cout << i + 1 << "." << endl;
@@ -2208,8 +2208,9 @@ int main() {
                 }
                 ATM* selectedATM = atm_list[atmChoice - 1];
 
+                ui.clearScreen();
+
                 while (true) {
-                    ui.clearScreen();
                     cout << (ui.getLanguage() ? "Insert your card." : "카드를 삽입하세요.") << endl;
                     string cardNumber;
                     cout << (ui.getLanguage() ? "Enter your card number (or '0' to return): " : "카드 번호를 입력하세요 (0을 입력하면 돌아갑니다): ");
