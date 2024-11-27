@@ -1776,8 +1776,6 @@ int main() {
     vector<Bank*> bank_list; // 여러 은행을 저장할 벡터
     int current_atm_num;
     ATM* atm;
-
-   
     
 
     // 프로그램 루프
@@ -1790,10 +1788,11 @@ int main() {
 
         if (startSelection == "1") {  // 은행 관리
             ui.showTransitionMessage(ui.getLanguage() ? "Moving to Bank Management Menu..." : "은행 관리 메뉴로 이동 중...");
+            
             while (true) {
                 ui.showBankManagementMenu();
                 cout << (ui.getLanguage() ? "Please select an option: " : "옵션 선택: ") << endl;
-                
+                /////
                 string bankSelection;
                 cin >> bankSelection;
                 if (bankSelection == "1") {
@@ -1802,16 +1801,33 @@ int main() {
                     cout << (ui.getLanguage() ? "Enter the bank name: " : "은행 이름을 입력하세요: ");
                     cin >> bankName;
                     cout << (ui.getLanguage() ? "Enter the bank code: " : "은행 코드를 입력하세요: ");
-                    cin >> bankCode;
-                    if (bankCode.length() != 4) {
-                        cout << "Error: Bank code must be 4 digits." << endl;
-                        continue;
+
+                    while (true) {
+                        cin >> bankCode;
+                        if (bankCode.length() == 4)
+                            break;
+                        cout << (ui.getLanguage() ? "Error: Bank code must be 4 digits.\nPlease Try again." : "오류: 은행 코드는 4자리여야 합니다.\n다시 시도해 주세요.") << endl;
+                        
                     }
                     bank_list.push_back(new Bank(bankName, bankCode, &ui));
                     cout << (ui.getLanguage() ? "Bank added successfully.\n" : "은행이 성공적으로 추가되었습니다.\n");
+
+                    cout << (ui.getLanguage() ? "Press Enter to continue..." : "계속하려면 Enter를 누르세요...");
+                    cin.ignore();
+                    cin.get();
+                    
                 }
                 else if (bankSelection == "2") {
                     // 은행 삭제
+                    for (int i = 0; i < bank_list.size(); i++) {
+                        // 은행 목록
+                        cout << "======================" << endl;
+                        cout << i + 1 << "." << endl;
+                        cout << (ui.getLanguage() ? "Bank Name: ": "은행 이름: ") << bank_list[i]->getBankName() << endl;
+                        cout << (ui.getLanguage() ? "Bank Code: " : "은행 코드: ") << bank_list[i]->getBankNumber() << endl << endl;
+                        
+                    }
+
                     string bankCode;
                     cout << (ui.getLanguage() ? "Enter the bank code to delete: " : "삭제할 은행 코드를 입력하세요: ");
                     cin >> bankCode;
@@ -1823,16 +1839,26 @@ int main() {
                             delete* it;
                             bank_list.erase(it);
                             found = true;
+                            cout << (ui.getLanguage() ? "Bank is deleted successfully." : "은행이 성공적으로 삭제되었습니다.") << endl;
+                            cout << (ui.getLanguage() ? "Press Enter to continue..." : "계속하려면 Enter를 누르세요...");
+                            cin.ignore();
+                            cin.get();
                             break;
                         }
                     }
                     if (!found) {
                         cout << (ui.getLanguage() ? "Error: Bank not found.\n" : "오류: 해당 은행을 찾을 수 없습니다.\n");
+                        cout << (ui.getLanguage() ? "Press Enter to continue..." : "계속하려면 Enter를 누르세요...");
+                        cin.ignore();
+                        cin.get();
                     }
                 }
                 else if (bankSelection == "3") { // 계좌 생성
                     if (bank_list.empty()) {
                         cout << (ui.getLanguage() ? "No banks available. Please add a bank first.\n" : "등록된 은행이 없습니다. 먼저 은행을 추가해주세요.\n");
+                        cout << (ui.getLanguage() ? "Press Enter to continue..." : "계속하려면 Enter를 누르세요...");
+                        cin.ignore();
+                        cin.get();
                         continue;
                     }
 
@@ -1844,6 +1870,9 @@ int main() {
                     int bankChoice = getIntegerInput(ui.getLanguage() ? "Enter the bank number: " : "은행 번호를 입력하세요: ");
                     if (bankChoice < 1 || bankChoice > static_cast<int>(bank_list.size())) {
                         cout << (ui.getLanguage() ? "Invalid bank selection.\n" : "잘못된 은행 선택입니다.\n");
+                        cout << (ui.getLanguage() ? "Press Enter to continue..." : "계속하려면 Enter를 누르세요...");
+                        cin.ignore();
+                        cin.get();
                         continue;
                     }
 
@@ -1859,10 +1888,15 @@ int main() {
 
                     selectedBank->make_account(ownerName, selectedBank->getBankName(), initialBalance, password);
                     cout << (ui.getLanguage() ? "Account created successfully.\n" : "계좌가 성공적으로 생성되었습니다.\n");
+                    
+                    cout << (ui.getLanguage() ? "Press Enter to continue..." : "계속하려면 Enter를 누르세요...");
+                    cin.ignore();
+                    cin.get();
                 }
                 else if (bankSelection == "4") { // 계좌 삭제
                     if (bank_list.empty()) {
                         cout << (ui.getLanguage() ? "No banks available.\n" : "등록된 은행이 없습니다.\n");
+                        
                         continue;
                     }
 
@@ -1874,6 +1908,7 @@ int main() {
                     int bankChoice = getIntegerInput(ui.getLanguage() ? "Enter the bank number: " : "은행 번호를 입력하세요: ");
                     if (bankChoice < 1 || bankChoice > static_cast<int>(bank_list.size())) {
                         cout << (ui.getLanguage() ? "Invalid bank selection.\n" : "잘못된 은행 선택입니다.\n");
+                        
                         continue;
                     }
 
@@ -1885,15 +1920,20 @@ int main() {
 
                     if (selectedBank->deleteAccount(accountNumber)) {
                         cout << (ui.getLanguage() ? "Account removed successfully.\n" : "계좌가 성공적으로 삭제되었습니다.\n");
+                        
                     }
                     else {
                         cout << (ui.getLanguage() ? "Error: Account number not found.\n" : "오류: 해당 계좌 번호를 찾을 수 없습니다.\n");
+                        
                     }
+                    cout << (ui.getLanguage() ? "Press Enter to continue..." : "계속하려면 Enter를 누르세요...");
+                    cin.ignore();
+                    cin.get();
                 }
                 else if (bankSelection == "5") { // 계좌 목록 조회
                     if (bank_list.empty()) {
                         cout << (ui.getLanguage() ? "No banks available.\n" : "등록된 은행이 없습니다.\n");
-                        continue;
+                        
                     }
 
                     cout << (ui.getLanguage() ? "Select a bank to view accounts:\n" : "계좌 목록을 조회할 은행을 선택하세요:\n");
@@ -1904,7 +1944,7 @@ int main() {
                     int bankChoice = getIntegerInput(ui.getLanguage() ? "Enter the bank number: " : "은행 번호를 입력하세요: ");
                     if (bankChoice < 1 || bankChoice > static_cast<int>(bank_list.size())) {
                         cout << (ui.getLanguage() ? "Invalid bank selection.\n" : "잘못된 은행 선택입니다.\n");
-                        continue;
+                        
                     }
 
                     Bank* selectedBank = bank_list[bankChoice - 1];
