@@ -13,6 +13,7 @@
 
 
 
+
 using namespace std;
 
 #define RESET "\033[0m"
@@ -100,9 +101,10 @@ private:
     Account* accounts[100];
     int num_of_accounts = 0;
     Interface* ui;
+
 public:
-    Bank(string bankname, string banknumber)
-        : bank_name(bankname), bank_number(banknumber)
+    Bank(string bankname, string banknumber, Interface* interface)
+        : bank_name(bankname), bank_number(banknumber), ui(interface)
     {
         bank_list[num_of_banks++] = this;
     }
@@ -126,6 +128,8 @@ public:
     bool hasAccount(string accountnumber);
     void increase_receiver_balance(string receiver_account_number, double amount);
     bool show_authorize(string account_num, string input_password);
+    bool show_card_is(string input_cardnumber);
+    string getBankbyNum(string num);
 };
 class Interface {
 private:
@@ -235,12 +239,14 @@ public:
 
     // 화면 초기화
     void clearScreen() const {
+
 #ifdef _WIN32
         system("cls");
 #else
         std::cout << "\033[H\033[J";
 #endif
     }
+
 
     void showTransitionMessage(const std::string& message) const {
         clearScreen();
@@ -320,7 +326,7 @@ public:
                 cout << "새로운 은행 번호를 입력하세요(4자리): ";
                 cin >> bank_number;
 
-                Bank* new_bank = new Bank(bank_name, bank_number);
+                Bank* new_bank = new Bank(bank_name, bank_number, this);
                 bank_list.push_back(new_bank);
                 std::cout << "은행이 추가되었습니다: " << bank_name << " (" << bank_number << ")\n";
 
@@ -577,27 +583,33 @@ private:
     string cardnumber;
     string transaction_type;
     int amount;
-    //int num_of_transaction = 0;
-    //record* transaction_records[100];
 
 public:
     record(string id, string card, string type, int amt)
-        : transactionID(id), cardnumber(card), transaction_type(type), amount(amt) {}
+        : transactionID(id), cardnumber(card), transaction_type(type), amount(amt) {
+        transactionID = id;
+        cardnumber = card;
+        transaction_type = type;
+        amount = amt;
+        //transaction_records[num_of_transaction++] = this;
+    }
 
     string gettransactionID() { return transactionID; }
     string getcardnumber() { return cardnumber; }
     string gettransaction_type() { return transaction_type; }
     int getamount() { return amount; }
 
-    void display_one_transaction() const {
+    void display_one_transaction(const Interface* ui) const {
+        bool isEng = ui->getLanguage(); // 언어 설정 가져오기
         cout << "-------------------------------------------" << endl;
-        cout << "Transaction ID: " << transactionID << endl;
-        cout << "Card Number: " << cardnumber << endl;
-        cout << "Transaction Type: " << transaction_type << endl;
-        cout << "Amount: " << amount << endl;
+        cout << (isEng ? "Transaction ID: " : "거래 ID: ") << transactionID << endl;
+        cout << (isEng ? "Card Number: " : "카드 번호: ") << cardnumber << endl;
+        cout << (isEng ? "Transaction Type: " : "거래 유형: ") << transaction_type << endl;
+        cout << (isEng ? "Amount: " : "금액: ") << amount << (isEng ? " units" : "원") << endl;
         cout << "-------------------------------------------" << endl;
     }
 };
+
 class Card {
 public:
     string cardNumber;
@@ -615,7 +627,7 @@ private:
     Account* account;
     Bank* bank;
     string atmNumber;
-    int atmID = 000000;
+    string atmID;
     Interface* ui;
     int cash[4]{ 0, 0, 0, 0 };
     int transaction_order = 0; ////// 거래 번호 추가
@@ -630,16 +642,13 @@ private:
     bool isSingleBankMode; // Single Bank 모드 여부
 
 public:
-    ATM(Bank* atmBank, bool issingle, int arr[4], const string& atmId) : bank(atmBank), isSingleBankMode(issingle), atmID(atmId) {
-        //bank = atmBank;
-        //isSingleBankMode = issingle;
-        //atmID = atmID++;
-        //cash[4] = arr[4];
-        //atm_list.push_back(this);
+    ATM(Bank* atmBank, bool issingle, int arr[4], const string& atmId, Interface* uiinterface)
+        : bank(atmBank), isSingleBankMode(issingle), atmID(atmId), ui(uiinterface) {
         for (int i = 0; i < 4; ++i) {
-            cash[i] = arr[i]; // cash 배열 복사
+            cash[i] = arr[i];
         }
-    }//////////////////////////////////////////////////////
+    }
+
     string getatmNumber() { return atmNumber; }
     string getremainingcash(int i) { return to_string(cash[i]); }
 
@@ -651,10 +660,10 @@ public:
     string getatmID() { return atmID; }
     string getatmbank() { return atmBank; }
     bool issinglemode() { return isSingleBankMode; }
-    int cashinatm() { return cash[0] * 1000 + cash[1] * 5000 + cash[2] * 10000 + cash[3] * 50000; }
+    int cashinatm() const { return cash[0] * 1000 + cash[1] * 5000 + cash[2] * 10000 + cash[3] * 50000; }
     bool insertCard();
     void adminMenu();
-    void userMenu(vector<Bank*> bank_list, vector<ATM*> atm_list, Interface uii);
+    void userMenu(ATM* selectedATM);
     bool authenticateUser(Card& card);
     void displayATMModes();
     bool validateCardForSingleBank(const string& cardNumber);
@@ -676,49 +685,70 @@ public:
     string transactionid();
     void transaction_recording(string transaction_type, int amount);
     void display_history(string card_number);
+    void setAccount(Account* acc) {
+        account = acc;
+    }
 };
 
-class singleATM : private ATM {
+class singleATM : public ATM {
 public:
-    singleATM(Bank* bank, bool issingle, int cashes[4]) :ATM(bank, issingle, cashes) {};
-    ~singleATM();
+    singleATM(Bank* bank, bool issingle, int arr[4], const string& id, Interface* ui)
+        : ATM(bank, issingle, arr, id, ui) {}
 };
-class multiATM : private ATM {
-private:
+
+class multiATM : public ATM {
 public:
-    multiATM(Bank* bank, bool issingle, int cashes[4]) :ATM(bank, issingle, cashes) {};
-    ~multiATM();
+    multiATM(Bank* bank, bool issingle, int arr[4], const string& id, Interface* ui)
+        : ATM(bank, issingle, arr, id, ui) {}
 };
 
 
+void display_atm() {
+    for (int i = 0; i < num_of_ATM; i++) {
+        cout << "ATM[SN:" << atm_list[i]->getatmNumber() << "] remaining cash : {KRW 50000 : " << atm_list[i]->getremainingcash(3) << ", KRW 10000 : " << atm_list[i]->getremainingcash(2) << ", KRW 5000 : " << atm_list[i]->getremainingcash(1)
+            << ", KRW 1000 : " << atm_list[i]->getremainingcash(0) << "} " << endl;
+    }
+}
+
+void display_account() {
+    for (int i = 0; i < num_of_banks; i++) {
+        for (int j = 0; j < bank_list[i]->getNumOfAccounts(); j++) {
+
+            cout << "Account[Bank:" << bank_list[i]->getBankName() << ", No : " << bank_list[i]->access_to_account(j)->getAccountNumber() << ", Owner : " << bank_list[i]->access_to_account(j)->getOwnerName() << "]"
+                << " balance: " << bank_list[i]->access_to_account(j)->getAvailableFund() << endl;
+        }
+    }
+}
 
 bool Bank::isPositive(int input) {
     if (input < 0) {
-        cout << ("올바른 숫자가 아닙니다.\n다시 시도해 주세요.") << endl;
+        cout << (ui->getLanguage() ? "Invalid Number\nTry Again" : "올바른 숫자가 아닙니다.\n다시 시도해 주세요.") << endl;
         return false;
     }
     return true;
 }
 void Bank::CreateATM() {
     while (true) {
-        cout << this->getBankName() << ("은행에서 ATM 생성을 시작합니다.") << endl;
+        cout << (ui->getLanguage() ? "Starting ATM creation for bank: " : "은행에서 ATM 생성을 시작합니다: ") << this->getBankName() << endl;
 
-        bool issingle;
-        string singleormulti;
+        bool isSingle;
+        string singleOrMulti;
         cout << (ui->getLanguage() ? "1. Single-bank ATM" : "1. 단일 은행 ATM") << endl;
         cout << (ui->getLanguage() ? "2. Multi-bank ATM" : "2. 다중 은행 ATM") << endl;
-        cin >> singleormulti;
+        cin >> singleOrMulti;
 
-        if (singleormulti == "1") {
+        if (singleOrMulti == "1") {
             cout << (ui->getLanguage() ? "Creating a Single-bank ATM." : "단일 은행 ATM을 만듭니다.") << endl;
-            issingle = true;
+            isSingle = true;
         }
         else {
             cout << (ui->getLanguage() ? "Creating a Multi-bank ATM." : "다중 은행 ATM을 만듭니다.") << endl;
-            issingle = false;
+            isSingle = false;
         }
+
         int cashes[4]{ 0, 0, 0, 0 };
-        int bank_index, cash1, cash2, cash3, cash4;
+        int cash1, cash2, cash3, cash4;
+        int bank_index = 0;
         cout << (ui->getLanguage() ? "Enter the initial cash amounts for the ATM." : "ATM의 초기 금액을 입력해 주세요.") << endl;
         cout << (ui->getLanguage() ? "Enter the number of bills for each denomination." : "각 단위에 해당하는 지폐의 수를 입력해 주세요.") << endl;
 
@@ -727,47 +757,57 @@ void Bank::CreateATM() {
             cin >> cash1;
             if (isPositive(cash1)) break;
         }
+
         cout << endl << "5,000: ";
         while (true) {
             cin >> cash2;
             if (isPositive(cash2)) break;
         }
+
         cout << endl << "10,000: ";
         while (true) {
             cin >> cash3;
             if (isPositive(cash3)) break;
         }
+
         cout << endl << "50,000: ";
         while (true) {
             cin >> cash4;
             if (isPositive(cash4)) break;
         }
+
         cashes[0] = cash1;
         cashes[1] = cash2;
         cashes[2] = cash3;
         cashes[3] = cash4;
+
         cout << (ui->getLanguage() ? "Initial cash total: " : "ATM의 초기 금액: ")
             << cashes[0] * 1000 + cashes[1] * 5000 + cashes[2] * 10000 + cashes[3] * 50000 << endl;
 
         cout << (ui->getLanguage() ? "Creating the ATM..." : "ATM 생성 중 ...") << endl;
+
         if (isSingle) {
             string uniqueID = bank_list[bank_index]->getBankNumber() +
                 to_string(atm_list.size() + 1).insert(0, 2 - to_string(atm_list.size() + 1).length(), '0');
-            atm_list.push_back(new singleATM(bank_list[bank_index], isSingle, cashes, uniqueID));
+            atm_list.push_back(new singleATM(bank_list[bank_index], isSingle, cashes, uniqueID, ui));
             cout << (ui->getLanguage() ? "Single ATM created with ID: " : "단일 ATM 생성됨, ID: ") << uniqueID << endl;
         }
         else {
             string uniqueID = bank_list[bank_index]->getBankNumber() +
                 to_string(atm_list.size() + 1).insert(0, 2 - to_string(atm_list.size() + 1).length(), '0');
-            atm_list.push_back(new multiATM(bank_list[bank_index], isSingle, cashes, uniqueID));
+            atm_list.push_back(new multiATM(bank_list[bank_index], isSingle, cashes, uniqueID, ui));
             cout << (ui->getLanguage() ? "Multi ATM created with ID: " : "다중 ATM 생성됨, ID: ") << uniqueID << endl;
         }
+
+
+
     }
 }
 
+
 Account* Bank::createAccount(const string& owner, double balance, const string& password) {
     if (num_of_accounts >= 100) {
-        cout << "계좌 생성 실패: 최대 계좌 수를 초과했습니다.\n";
+        cout << (ui->getLanguage() ? "Fail to generate Accout: Maximum account" : "계좌 생성 실패: 최대 계좌 수를 초과했습니다.\n");
         return nullptr;
     }
 
@@ -801,8 +841,10 @@ void Bank::listAccounts() const {
         cout << (ui->getLanguage() ? "No registered accounts." : "등록된 계좌가 없습니다.") << endl;
         return;
     }
+
     cout << (ui->getLanguage() ? "Bank " : "은행 ") << bank_name
         << (ui->getLanguage() ? "'s account list:" : "의 계좌 목록:") << endl;
+
     for (int i = 0; i < num_of_accounts; ++i) {
         Account* account = accounts[i];
         cout << std::fixed << std::setprecision(0); // 잔액을 정수형으로 출력
@@ -813,6 +855,7 @@ void Bank::listAccounts() const {
             << (ui->getLanguage() ? ", Balance: " : ", 잔액: ") << account->getAvailableFund() << (ui->getLanguage() ? " units\n" : "원\n");
     }
 }
+
 Account* Bank::make_account(string new_owner_name, string bankname, double initial_balance, string password) {
     if (num_of_accounts >= 100) {
         cout << "계좌 생성 실패: 최대 계좌 수를 초과했습니다.\n";
@@ -905,7 +948,17 @@ bool Bank::show_authorize(string account_num, string input_password) {
     }
     return false;
 }
-
+bool Bank::show_card_is(string input_cardnumber) {
+    for (int i = 0; i < num_of_accounts; i++) {
+        if (accounts[i]->getAccountNumber() == input_cardnumber) {
+            return true;
+        }
+        else {
+            return false;
+        }
+        
+    }
+}
 
 
 string ATM::make_atmNumber(Bank* atmBank) {
@@ -926,7 +979,7 @@ string ATM::trim(const string& str) {
     return str.substr(first, (last - first + 1));
 }
 string ATM::getBankNumber() {
-    return trim(bank->getBankNumber()); // 기존 코드에 trim 적용
+    return bank->getBankNumber(); // 기존 코드에 trim 적용
 }
 
 bool ATM::insertCard() {
@@ -942,10 +995,9 @@ bool ATM::insertCard() {
 
     string bankCode = cardNumber.substr(0, 4); // 카드 번호 앞 4자리 은행 코드 추출
 
-
     // 카드 번호가 등록된 카드인지 확인
     if (cards.find(cardNumber) == cards.end()) {
-        cout << "Error: Card not found." << endl;
+        cout << (ui->getLanguage() ? "Error: Card not found." : "에러: 카드가 존재하지 않습니다.") << endl;
         return false;
     }
 
@@ -976,7 +1028,7 @@ void ATM::adminMenu() {
         //}
         if (selection == "1") {
             // 관리자 기능: 거래 내역 조회
-            cout << "Viewing transaction history..." << endl;
+            cout << (ui->getLanguage() ? "Viewing transaction history..." : "거래 내역 조회...") << endl;
             display_history("admin");
         }
         else if (selection == "2") {
@@ -988,88 +1040,83 @@ void ATM::adminMenu() {
         }
     }
 }
-void display_atm(vector<ATM*> atm_list, Interface ui) {
-    if (atm_list.empty()) {
-        cout << (ui.getLanguage() ? "There are no ATMs created." : "생성된 ATM이 없습니다.") << endl;
-    }
-    else {
-        for (int i = 0; i < num_of_ATM; i++) {
-            cout << "ATM[SN:" << atm_list[i]->getatmNumber() << "] remaining cash : {KRW 50000 : " << atm_list[i]->getremainingcash(3) << ", KRW 10000 : " << atm_list[i]->getremainingcash(2) << ", KRW 5000 : " << atm_list[i]->getremainingcash(1)
-                << ", KRW 1000 : " << atm_list[i]->getremainingcash(0) << "} " << endl;
-        }
+void ATM::userMenu(ATM* selectedATM) {
+    if (ui == nullptr) {
+        cout << "Error: UI interface is not initialized.\n";
+        return;
     }
 
-}
-void display_account(vector<Bank*> bank_list, Interface ui) {
-    if (num_of_banks == 0) {
-        cout << (ui.getLanguage() ? "There are no Banks created." : "생성된 은행이 없습니다.") << endl;
-    }
-    else {
-        bool account_exist = false;
-        for (int i = 0; i < num_of_banks; i++) {
-            if (bank_list[i]->getNumOfAccounts() != 0) {
-                account_exist = true;
-            }
-        }
-        if (!account_exist) {
-            cout << (ui.getLanguage() ? "There are no Accounts created." : "생성된 계좌가 없습니다.") << endl;
-        }
-        else {
-            for (int i = 0; i < num_of_banks; i++) {
-                for (int j = 0; j < bank_list[i]->getNumOfAccounts(); j++) {
+    cout << "Entering userMenu..." << endl;
 
-                    cout << "Account[Bank:" << bank_list[i]->getBankName() << ", No : " << bank_list[i]->access_to_account(j)->getAccountNumber() << ", Owner : " << bank_list[i]->access_to_account(j)->getOwnerName() << "]"
-                        << " balance: " << bank_list[i]->access_to_account(j)->getAvailableFund() << endl;
-                }
-            }
-        }
-    }
-
-}
-void ATM::userMenu(vector<Bank*> bank_list, vector<ATM*> atm_list, Interface uii) {
     while (true) {
-        ui->showUserMenu(); // 사용자 메뉴 출력
+        ui->showUserMenu();
+        cout << (ui->getLanguage() ? "Select an option: " : "옵션을 선택하세요: ");
+
+        // 스트림 상태 초기화
+        cin.clear();
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
         string selection;
         cin >> selection;
 
-        if (selection == "/") {
-            // 거래 내역을 출력
-
-
-            display_atm(atm_list, ui);
-            display_account(bank_list, ui);
-            // display_history(account->getCardNumber());
-            continue;  // 다시 메뉴로 돌아감
-        }
-        else if (selection == "admin") {
-            // 관리자 메뉴로 이동
-            adminMenu();
+        if (cin.fail()) {
+            cin.clear(); // 입력 스트림 상태 초기화
+            cin.ignore(numeric_limits<streamsize>::max(), '\n'); // 남은 입력 제거
+            cout << (ui->getLanguage() ? "Invalid input. Please try again.\n" : "잘못된 입력입니다. 다시 시도해 주세요.\n");
             continue;
         }
 
-        // 숫자 입력일 경우에는 기존 메뉴 처리
-        int option = stoi(selection); // 선택을 숫자 옵션으로 변환
-        if (option == 1) {
-            bool success = deposit();  // 입금 기능 호출
-            if (!success) continue; // 실패 시 다시 메뉴로 돌아가도록
+        if (selection.empty()) {
+            cout << (ui->getLanguage() ? "Invalid input. Please try again.\n" : "잘못된 입력입니다. 다시 시도해 주세요.\n");
+            continue;
         }
-        else if (option == 2) {
-            bool success = withdraw();  // 출금 기능 호출
-            if (!success) continue; // 실패 시 다시 메뉴로 돌아가도록
+        cout << "User selected: " << selection << endl;
+
+
+        // 숫자 입력 처리
+        if (selection == "1") {
+            cout << "Selected Deposit menu..." << endl;
+            bool success = deposit();
+            if (!success) {
+                cout << "Deposit failed. Returning to user menu..." << endl;
+            }
         }
-        else if (option == 3) {
-            bool success = transfer();  // 송금 기능 호출
-            if (!success) continue; // 실패 시 다시 메뉴로 돌아가도록
+        else if (selection == "2") {
+            cout << "Selected Withdraw menu..." << endl;
+            bool success = withdraw();
+            if (!success) {
+                cout << "Withdraw failed. Returning to user menu..." << endl;
+            }
         }
-        else if (option == 4) {
+        else if (selection == "3") {
+            cout << "Selected Transfer menu..." << endl;
+            bool success = transfer();
+            if (!success) {
+                cout << "Transfer failed. Returning to user menu..." << endl;
+            }
+        }
+        else if (selection == "4") {
             cout << (ui->getLanguage() ? "Exiting ATM. Please take your card.\n" : "ATM을 종료합니다. 카드를 가져가세요.\n");
-            break; // 사용자 메뉴 종료
+            break;
+        }
+        else if (selection == "/") {
+            cout << "Displaying ATM and account details..." << endl;
+            display_atm();
+            display_account();
+            continue;
+        }
+        else if (selection == "admin") {
+            cout << "Accessing admin menu..." << endl;
+            adminMenu();
+            continue;
         }
         else {
             cout << (ui->getLanguage() ? "Invalid option. Please try again.\n" : "잘못된 선택입니다. 다시 시도해 주세요.\n");
         }
     }
+
+    cout << "Exiting userMenu..." << endl;
 }
+
 bool ATM::authenticateUser(Card& card) {
     string inputPassword;
     int attempts = 0;
@@ -1215,18 +1262,27 @@ void ATM::depositCash(Interface* ui, int& m1, int& m2, int& m3, int& m4) {
     }
 }
 bool ATM::deposit() {
-    int input;
+    cout << "Starting deposit process..." << endl;
+
+    if (account == nullptr) {
+        cout << "Error: Account is not initialized." << endl;
+        return false;
+    }
     string accountNumber = account->getAccountNumber();
     if (accountNumber.length() < 4) {
-        cout << "Error: Account number too short. Length: " << accountNumber.length() << endl;
-        throw std::length_error("Account number length is less than 4.");
+        cout << (ui->getLanguage() ? "Error: Account number too short. Length: " : "에러: 계좌번호가 너무 짧습니다. ") << accountNumber.length() << endl;
+        throw std::length_error(ui->getLanguage() ? "Account number length is less than 4." : "계좌번호가 4자리보다 짧음.");
     }
     string cardBank = accountNumber.substr(0, 4);
 
     while (true) {
-        ui->showDepositMenu();
-        input = getValidInput((ui->getLanguage() ? "Select an option: " : "옵션을 선택하세요: "), ui);
 
+        ui->showDepositMenu();
+
+        int input;// = getValidInput((ui->getLanguage() ? "Select an option: " : "옵션을 선택하세요: "), ui);
+        cin >> input;
+        cin.ignore();
+        cin.get();
         if (input == 1) { // Cash Deposit
             int m1, m2, m3, m4, depositAmount;
 
@@ -1234,7 +1290,7 @@ bool ATM::deposit() {
                 depositCash(ui, m1, m2, m3, m4); // Handle exception if max bills exceeded
             }
             catch (const runtime_error& e) {
-                cout << "Error: " << e.what() << endl; // Log exception details
+                cout << (ui->getLanguage() ? "Error: " : "에러: ") << e.what() << endl; // Log exception details
                 ui->transactionCancelled();
                 return false;
             }
@@ -1278,7 +1334,7 @@ bool ATM::deposit() {
         }
         else if (input == 3) { // Cancel Transaction
             ui->transactionCancelled();
-            return false;
+            break;
         }
         else {
             ui->showErrorMessage();
@@ -1429,6 +1485,10 @@ bool ATM::fee_account_calculator(int fee) { // 계좌에서 수수료 계산
 
 bool ATM::withdraw() {
     int withdrawAmount;
+    if (ui == nullptr || account == nullptr) {
+        cout << "Error: System not initialized." << endl;
+        return false;
+    }
     string cardBank = account->getAccountNumber().substr(0, 4); // 카드의 은행 코드 확인
     int withdrawalCount = 0; // 세션 당 인출 횟수 제한
     if (not card_verification(account)) return false;
@@ -1439,6 +1499,12 @@ bool ATM::withdraw() {
         cout << (ui->getLanguage() ? "Enter amount to withdraw or '0' to cancel: " : "출금할 금액을 입력하거나 '0'을 눌러 취소하세요: ");
         while (true) {
             cin >> withdrawAmount;
+            if (cin.fail() || withdrawAmount < 0) {
+                cin.clear(); // 입력 스트림 초기화
+                cin.ignore(numeric_limits<streamsize>::max(), '\n'); // 입력 버퍼 비우기
+                cout << (ui->getLanguage() ? "Invalid input. Please try again." : "잘못된 입력입니다. 다시 시도해 주세요.") << endl;
+                continue;
+            }
             if (isPositive(withdrawAmount)) break;
         }
 
@@ -1454,8 +1520,8 @@ bool ATM::withdraw() {
             continue;
         }
         if (withdrawAmount > account->getAvailableFund()) {
-            cout << (ui->getLanguage() ? "Error: Insufficient account balance." : "오류: 계좌 잔액이 부족합니다.") << endl;
-            return false; // 계좌 잔액 부족 시 종료
+            throw runtime_error(ui->getLanguage() ? "Insufficient account balance." : "계좌 잔액 부족");
+
         }
 
         // ATM 현금 부족 오류 처리
@@ -1705,6 +1771,7 @@ bool ATM::transfer() {
             return false;
         }
     }
+    return false;
 }
 
 void ATM::processTransaction(int depositAmount, const string& cardBank) {
@@ -1747,7 +1814,7 @@ void ATM::display_history(string card_number) {
         if (select == "1") {
             cout << "************Transaction History************" << endl;
             for (int i = 0; i < num_of_transaction; i++) {
-                transaction_records[i]->display_one_transaction();
+                transaction_records[i]->display_one_transaction(ui);
             }
 
             cout << "Would you like to print it?" << endl;
@@ -1783,8 +1850,15 @@ void ATM::display_history(string card_number) {
         }
     }
     else if (card_number == account->getCardNumber()) {
-        transaction_records[num_of_transaction - 1]->display_one_transaction();
+        transaction_records[num_of_transaction - 1]->display_one_transaction(ui);
     }
+}
+
+
+string generateAtmID(const string& bankNumber, int atmCount) {
+    ostringstream oss;
+    oss << bankNumber << setfill('0') << setw(2) << atmCount + 1; // 은행 번호 + ATM 순번
+    return oss.str();
 }
 
 
@@ -1795,9 +1869,10 @@ int main() {
     vector<ATM*> atm_list;
     vector<Bank*> bank_list; // 여러 은행을 저장할 벡터
     int current_atm_num;
+    ATM* atm;
 
-   
-    
+
+
 
     // 프로그램 루프
     while (true) {
@@ -1812,7 +1887,7 @@ int main() {
             while (true) {
                 ui.showBankManagementMenu();
                 cout << (ui.getLanguage() ? "Please select an option: " : "옵션 선택: ") << endl;
-                
+
                 string bankSelection;
                 cin >> bankSelection;
                 if (bankSelection == "1") {
@@ -1826,7 +1901,7 @@ int main() {
                         cout << "Error: Bank code must be 4 digits." << endl;
                         continue;
                     }
-                    bank_list.push_back(new Bank(bankName, bankCode));
+                    bank_list.push_back(new Bank(bankName, bankCode, &ui));
                     cout << (ui.getLanguage() ? "Bank added successfully.\n" : "은행이 성공적으로 추가되었습니다.\n");
                 }
                 else if (bankSelection == "2") {
@@ -1939,8 +2014,11 @@ int main() {
                     break;
                 }
                 else if (bankSelection == "/") {
-                    display_atm(atm_list, ui);
-                    display_account(bank_list, ui);
+                    display_atm();
+                    display_account();
+                    cout << (ui.getLanguage() ? "Press Enter to continue..." : "계속하려면 엔터 키를 누르세요...");
+                    cin.ignore(); // 이전 입력의 개행 문자를 제거
+                    cin.get();
                     continue;
                 }
                 else {
@@ -1955,11 +2033,12 @@ int main() {
                 // UI ATM management 불러 오기
                 ui.showAMTManagementMenu();
                 cout << (ui.getLanguage() ? "Please select an option: " : "옵션 선택: ") << endl;
-               
+
                 string ATMSelection;
                 cin >> ATMSelection;
 
                 if (ATMSelection == "1") {
+                    // ATM 추가
                     // ATM 추가
                     string bankname;
                     int bank_index;
@@ -1985,65 +2064,151 @@ int main() {
                         cout << (ui.getLanguage() ? "Creating ATM is canceled." : "ATM 생성이 취소되었습니다.") << endl;
                         break;
                     }
-                    bank_list[bank_index]->CreateATM();
+                    while (true) {
+                        cout << bank_list[bank_index]->getBankName() << (ui.getLanguage() ? "Generating ATM." : "은행에서 ATM 생성을 시작합니다.") << endl;
+
+                        bool issingle;
+                        string singleormulti;
+                        cout << (ui.getLanguage() ? "1. Single Bank ATM" : "1. 단일 은행 ATM") << endl;
+                        cout << (ui.getLanguage() ? "2. Multi Bank ATM" : "2. 다중 은행 ATM") << endl;
+                        cin >> singleormulti;
+                        if (singleormulti == "1") {
+                            cout << (ui.getLanguage() ? "Generating Single Bank ATM." : "단일 은행 ATM을 만듭니다.") << endl;
+                            issingle = true;
+                        }
+                        else {
+                            cout << (ui.getLanguage() ? "Generating Multi Bank ATM." : "다중 은행 ATM을 만듭니다.") << endl;
+                            issingle = false;
+                        }
+                        int cashes[4]{ 0, 0, 0, 0 };
+                        int cash1, cash2, cash3, cash4;
+
+                        cout << (ui.getLanguage() ? "Enter the initial cash amount for the ATM." : "ATM의 초기 금액을 입력해 주세요.") << endl;
+                        cout << (ui.getLanguage() ? "Enter the number of bills for each denomination." : "각 단위에 해당하는 지폐의 수를 입력해 주세요.") << endl;
+
+                        cout << (ui.getLanguage() ? "1,000 bills: " : "1,000: ");
+                        cin >> cash1;
+
+                        cout << endl << (ui.getLanguage() ? "5,000 bills: " : "5,000: ");
+                        cin >> cash2;
+
+                        cout << endl << (ui.getLanguage() ? "10,000 bills: " : "10,000: ");
+                        cin >> cash3;
+
+                        cout << endl << (ui.getLanguage() ? "50,000 bills: " : "50,000: ");
+                        cin >> cash4;
+
+
+                        cashes[0] = cash1;
+                        cashes[1] = cash2;
+                        cashes[2] = cash3;
+                        cashes[3] = cash4;
+
+                        cout << (ui.getLanguage() ? "Total initial cash in the ATM: " : "ATM의 초기 금액: ")
+                            << cashes[0] * 1000 + cashes[1] * 5000 + cashes[2] * 10000 + cashes[3] * 50000 << endl;
+
+                        cout << (ui.getLanguage() ? "Creating ATM..." : "ATM 생성 중 ...") << endl;
+
+                        string atmId = generateAtmID(bank_list[bank_index]->getBankNumber(), atm_list.size());
+
+                        if (issingle) {
+                            atm_list.push_back(new singleATM(bank_list[bank_index], issingle, cashes, atmId, &ui));
+                            break;
+                        }
+                        else {
+                            atm_list.push_back(new multiATM(bank_list[bank_index], issingle, cashes, atmId, &ui));
+                            break;
+                        }
+
+                    }
+
+
                     current_atm_num = bank_index;
                 }
                 else if (ATMSelection == "2") {
                     // ATM 삭제
                     if (atm_list.empty()) {
                         cout << (ui.getLanguage() ? "No ATM to delete." : "삭제할 ATM이 존재하지 않습니다.") << endl;
-                    }
-                    ATM* atm;
-                    for (int i = 0; i < atm_list.size(); i++) {
-                        cout << i + 1 << "." << endl;
-                        cout << (ui.getLanguage() ? "ATM ID: " : "ATM 고유 번호: ") << atm_list[i]->getatmID() << endl;
-                        cout << (ui.getLanguage() ? "ATM Bank: " : "ATM 은행: ") << atm_list[i]->getatmbank() << endl;
-                        cout << (ui.getLanguage() ? "ATM Mode: " : "ATM 모드: ");
-                        if (atm_list[i]->issinglemode())
-                        {
-                            cout << (ui.getLanguage() ? "Sigle" : "단일") << endl;
-                        }
-                        else {
-                            cout << (ui.getLanguage() ? "Multi" : "다중") << endl;
-                            cout << (ui.getLanguage() ? "Cash on ATM: " : "ATM 내 현금: ") << atm_list[i]->cashinatm() << endl;
-                        }
+                        break;
                     }
 
-                    cout << "=============================";
-                    cout << (ui.getLanguage() ? "Enter the number of ATM to delete." : "삭제할 ATM의 번호를 입력해 주세요.") << endl;
-                    int num;
                     while (true) {
-                        cin >> num;
-                        if ((num > 0) and (num <= atm_list.size()))
-                            break;
-                    }
-                    num--;
-                    auto iterator = atm_list.begin();
-                    for (int i = 0; i < atm_list.size(); i++) {
-                        if (i == num) {
-                            iterator += i;
-                            atm_list.erase(iterator);
-                            atm = atm_list[i];
-                            delete atm;
-                            break;
-                        }
-                    }
-                    cout << (ui.getLanguage() ? "ATM deletion complete." : "ATM이 삭제되었습니다.") << endl;
-                }
-                else if (ATMSelection == "3") { // ATM 목록 확인
-                    for (int i = 1; i < atm_list.size() + 1; i++) {
-                        cout << i << "." << endl;
-                        cout << (ui.getLanguage() ? "ATM ID: " : "ATM 고유 번호: ") << atm_list[i]->getatmID() << endl;
-                        cout << (ui.getLanguage() ? "ATM Bank: " : "ATM 은행: ") << atm_list[i]->getatmbank() << endl;
-                        cout << (ui.getLanguage() ? "ATM Mode: " : "ATM 모드: ");
-                        if (atm_list[i]->issinglemode())
-                        {
-                            cout << (ui.getLanguage() ? "Sigle" : "단일") << endl;
-                        }
-                        else {
-                            cout << (ui.getLanguage() ? "Multi" : "다중") << endl;
+                        cout << "=============================" << endl;
+                        for (int i = 0; i < atm_list.size(); i++) {
+                            cout << i + 1 << "." << endl;
+                            cout << (ui.getLanguage() ? "ATM ID: " : "ATM 고유 번호: ") << atm_list[i]->getatmID() << endl;
+                            cout << (ui.getLanguage() ? "ATM Bank: " : "ATM 은행: ") << atm_list[i]->getatmbank() << endl;
+                            cout << (ui.getLanguage() ? "ATM Mode: " : "ATM 모드: ");
+                            if (atm_list[i]->issinglemode()) {
+                                cout << (ui.getLanguage() ? "Single" : "단일") << endl;
+                            }
+                            else {
+                                cout << (ui.getLanguage() ? "Multi" : "다중") << endl;
+                            }
                             cout << (ui.getLanguage() ? "Cash on ATM: " : "ATM 내 현금: ") << atm_list[i]->cashinatm() << endl;
                         }
+
+                        cout << "=============================" << endl;
+                        cout << (ui.getLanguage() ? "Enter the number of ATM to delete or press 0 to go back: "
+                            : "삭제할 ATM 번호를 입력하거나, 0을 눌러 이전 화면으로 돌아가세요: ") << endl;
+
+                        int num;
+                        cin >> num;
+
+                        if (num == 0) { // 0 입력 시 이전 화면으로 돌아가기
+                            cout << (ui.getLanguage() ? "Returning to previous menu..." : "이전 화면으로 돌아갑니다...") << endl;
+                            break;
+                        }
+
+                        if (num > 0 && num <= atm_list.size()) {
+                            num--; // 1-based index를 0-based로 변환
+                            auto iterator = atm_list.begin() + num;
+                            ATM* atm = *iterator;
+                            atm_list.erase(iterator);
+                            delete atm;
+
+                            cout << (ui.getLanguage() ? "ATM deletion complete." : "ATM이 삭제되었습니다.") << endl;
+                            break;
+                        }
+                        else {
+                            cout << (ui.getLanguage() ? "Invalid input. Try again." : "잘못된 입력입니다. 다시 시도하세요.") << endl;
+                        }
+                    }
+                }
+                else if (ATMSelection == "3") { // ATM 목록 확인
+                    // ATM 삭제
+                    if (atm_list.empty()) {
+                        cout << (ui.getLanguage() ? "No ATM to delete." : "삭제할 ATM이 존재하지 않습니다.") << endl;
+                        break;
+                    }
+
+                    while (true) {
+                        cout << "=============================" << endl;
+                        for (int i = 0; i < atm_list.size(); i++) {
+                            cout << i + 1 << "." << endl;
+                            cout << (ui.getLanguage() ? "ATM ID: " : "ATM 고유 번호: ") << atm_list[i]->getatmID() << endl;
+                            cout << (ui.getLanguage() ? "ATM Bank: " : "ATM 은행: ") << atm_list[i]->getatmbank() << endl;
+                            cout << (ui.getLanguage() ? "ATM Mode: " : "ATM 모드: ");
+                            if (atm_list[i]->issinglemode()) {
+                                cout << (ui.getLanguage() ? "Single" : "단일") << endl;
+                            }
+                            else {
+                                cout << (ui.getLanguage() ? "Multi" : "다중") << endl;
+                            }
+                            cout << (ui.getLanguage() ? "Cash on ATM: " : "ATM 내 현금: ") << atm_list[i]->cashinatm() << endl;
+                        }
+
+                        cout << "=============================" << endl;
+                        cout << (ui.getLanguage() ? "Press '0' to exit." : "0을 누르면 돌아갑니다.");
+                        int num;
+                        cin >> num;
+
+                        if (num == 0) { // 0 입력 시 이전 화면으로 돌아가기
+                            cout << (ui.getLanguage() ? "Returning to previous menu..." : "이전 화면으로 돌아갑니다...") << endl;
+                            break;
+                        }
+
+
                     }
                 }
                 else if (ATMSelection == "4") { // 메인 메뉴 돌아가기
@@ -2051,8 +2216,11 @@ int main() {
                     break;
                 }
                 else if (ATMSelection == "/") {
-                    display_atm(atm_list, ui);
-                    display_account(bank_list, ui);
+                    display_atm();
+                    display_account();
+                    cout << (ui.getLanguage() ? "Press Enter to continue..." : "계속하려면 엔터 키를 누르세요...");
+                    cin.ignore(); // 이전 입력의 개행 문자를 제거
+                    cin.get();
                     continue;
                 }
                 else {
@@ -2080,8 +2248,11 @@ int main() {
                     break;
                 }
                 else if (languageSelection == "/") {
-                    display_atm(atm_list, ui);
-                    display_account(bank_list, ui);
+                    display_atm();
+                    display_account();
+                    cout << (ui.getLanguage() ? "Press Enter to continue..." : "계속하려면 엔터 키를 누르세요...");
+                    cin.ignore(); // 이전 입력의 개행 문자를 제거
+                    cin.get();
                     continue;
                 }
                 else {
@@ -2090,111 +2261,192 @@ int main() {
             }
         }
         else if (startSelection == "4") { // 카드 삽입
-
-            while (true) {
-                ui.clearScreen(); // 이전 화면 제거
-                if (atm_list.empty()) { // ATM이 존재하지 않는 경우
-                    cout << (ui.getLanguage() ? "Please create an ATM first." : "먼저 ATM을 생성해 주세요.") << endl;
-                }
-                cout << (ui.getLanguage() ? "Select ATM for transaction." : "거래를 진행할 ATM을 선택해 주세요.") << endl;
-                for (int i = 1; i < atm_list.size() + 1; i++) {
-                    cout << i << "." << endl;
-                    cout << (ui.getLanguage() ? "ATM ID: " : "ATM 고유 번호: ") << atm_list[i]->getatmID() << endl;
-                    cout << (ui.getLanguage() ? "ATM Bank: " : "ATM 은행: ") << atm_list[i]->getatmbank() << endl;
-                    cout << (ui.getLanguage() ? "ATM Mode: " : "ATM 모드: ");
-                    if (atm_list[i]->issinglemode())
-                    {
-                        cout << (ui.getLanguage() ? "Sigle" : "단일") << endl;
-                    }
-                    else {
-                        cout << (ui.getLanguage() ? "Multi" : "다중") << endl;
-                        cout << (ui.getLanguage() ? "Cash on ATM: " : "ATM 내 현금: ") << atm_list[i]->cashinatm() << endl;
-                    }
-                }
-                while (true) { // ATM 선택
-                    cin >> current_atm_num;
-                    string atm_num = to_string(current_atm_num);
-                    if (current_atm_num <= 0) {
-                        cout << (ui.getLanguage() ? "Enter a valid value." : "올바른 값을 입력해 주세요.") << endl;
-                    }
-                    else if (atm_num == "/") {
-                        display_atm(atm_list, ui);
-                        display_account(bank_list, ui);
-                        continue;
-                    }
-                }
-
-                ui.showTransitionMessage(ui.getLanguage() ? "Insert your card." : "카드를 삽입하세요.");
-                string cardNumber;
-                cout << (ui.getLanguage() ? "Enter your card number (or '0' to return): " : "카드 번호를 입력하세요 (0을 입력하면 메인 메뉴로 돌아갑니다): ");
-                cin >> cardNumber;
-
-                // 초기화면으로 돌아가기
-                if (cardNumber == "0") {
-                    cout << (ui.getLanguage() ? "Returning to main menu..." : "메인 메뉴로 돌아갑니다...") << endl;
-                    break; // 초기화면으로 돌아감
-                }
-                
-
-                // 카드 번호 유효성 검사
-                if (cardNumber.empty() || cardNumber.length() != 12 || !std::all_of(cardNumber.begin(), cardNumber.end(), ::isdigit)) {
-                    cout << (ui.getLanguage() ? "Invalid card number. Please try again.\n" : "유효하지 않은 카드 번호입니다. 다시 시도하세요.\n");
-                    continue; // 입력을 다시 받음
-                }
-
-                // 은행 및 계좌 탐색
-                Bank* targetBank = nullptr;
-                Account* targetAccount = nullptr;
-
-                // 1. 은행 검색
-                for (auto bank : bank_list) {
-                    if (bank->getBankNumber() == cardNumber.substr(0, 4)) { // 앞 4자리 은행 번호 확인
-                        targetBank = bank;
-                        break;
-                    }
-                }
-
-                if (!targetBank) {
-                    cout << (ui.getLanguage() ? "Bank associated with card not found. Please try again.\n" : "카드와 연결된 은행을 찾을 수 없습니다. 다시 시도하세요.\n");
-                    continue; // 입력을 다시 받음
-                }
-
-                // 2. 계좌 검색
-                for (int i = 0; i < targetBank->getNumOfAccounts(); ++i) {
-                    Account* account = targetBank->getAccount(i);
-                    if (account && account->getCardNumber() == cardNumber) {
-                        targetAccount = account;
-                        break;
-                    }
-                }
-
-                if (!targetAccount) {
-                    cout << (ui.getLanguage() ? "Account associated with card not found. Please try again.\n" : "카드와 연결된 계좌를 찾을 수 없습니다. 다시 시도하세요.\n");
-                    continue; // 입력을 다시 받음
-                }
-
-                string password;
-                cout << (ui.getLanguage() ? "Enter your password: " : "비밀번호를 입력하세요: ");
-                cin >> password;
-                if (password == "/") {
-                    display_atm(atm_list, ui);
-                    display_account(bank_list, ui);
-                    break;
-                }
-
-                // 비밀번호 확인
-                if (targetAccount->getPassword() != password) {
-                    cout << (ui.getLanguage() ? "Incorrect password. Please try again.\n" : "비밀번호가 틀렸습니다. 다시 시도하세요.\n");
-                    continue; // 입력을 다시 받음
-                }
-
-                // 인증 성공 시 사용자 메뉴 호출
-                ui.clearScreen(); // 이전 화면 제거
-                cout << (ui.getLanguage() ? "Card authentication successful." : "카드 인증 성공.") << endl;
-                atm_list[current_atm_num]->userMenu(bank_list, atm_list, ui);  // 사용자 메뉴 호출
+            ui.clearScreen(); // 이전 화면 제거
+            if (atm_list.empty()) { // ATM이 존재하지 않는 경우
+                cout << (ui.getLanguage() ? "Please create an ATM first." : "먼저 ATM을 생성해 주세요.") << endl;
                 break;
             }
+
+            while (true) {
+                // ATM 목록 출력
+                cout << (ui.getLanguage() ? "Select ATM for transaction." : "거래를 진행할 ATM을 선택해 주세요.") << endl;
+                for (int i = 0; i < atm_list.size(); i++) {
+                    cout << i + 1 << "." << endl;
+                    cout << (ui.getLanguage() ? "ATM ID: " : "ATM 고유 번호: ") << atm_list[i]->getatmID() << endl;
+                    cout << (ui.getLanguage() ? "ATM Bank: " : "ATM 은행: ") << atm_list[i]->getatmbank() << endl;
+                    cout << (ui.getLanguage() ? "ATM Mode: " : "ATM 모드: ")
+                        << (atm_list[i]->issinglemode() ? (ui.getLanguage() ? "Single" : "단일") : (ui.getLanguage() ? "Multi" : "다중")) << endl;
+                    cout << (ui.getLanguage() ? "Cash on ATM: " : "ATM 내 현금: ") << atm_list[i]->cashinatm() << endl;
+                }
+
+                // ATM 선택
+                int atmChoice;
+                while (true) {
+                    cout << (ui.getLanguage() ? "Enter the number of ATM (or 0 to return): " : "ATM 번호를 입력하세요 (0을 입력하면 돌아갑니다): ");
+                    cin >> atmChoice;
+
+                    if (cin.fail()) {
+                        cin.clear();
+                        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+                        cout << (ui.getLanguage() ? "Invalid input. Please enter a valid number." : "유효하지 않은 입력입니다. 올바른 숫자를 입력하세요.") << endl;
+                        continue;
+                    }
+
+                    if (atmChoice == 0) {
+                        cout << (ui.getLanguage() ? "Returning to main menu..." : "메인 메뉴로 돌아갑니다...") << endl;
+                        break; // 초기 메뉴로 돌아감
+                    }
+
+                    if (atmChoice > 0 && atmChoice <= static_cast<int>(atm_list.size())) {
+                        break; // 올바른 ATM 선택
+                    }
+                    else {
+                        cout << (ui.getLanguage() ? "Invalid choice. Please select again." : "잘못된 선택입니다. 다시 선택하세요.") << endl;
+                    }
+                }
+                ATM* selectedATM = atm_list[atmChoice - 1];
+
+                // 카드 삽입 및 인증
+                int retryCount = 0;
+                const int maxRetries = 3; // 최대 비밀번호 입력 시도 횟수
+                while (retryCount < maxRetries) {
+                    ui.clearScreen();
+                    cout << (ui.getLanguage() ? "Insert your card." : "카드를 삽입하세요.") << endl;
+                    string cardNumber;
+
+                    cout << (ui.getLanguage() ? "Enter your card number (or '0' to return): " : "카드 번호를 입력하세요 (0을 입력하면 돌아갑니다): ");
+                    cin >> cardNumber;
+
+                    if (cardNumber == "0") {
+                        cout << (ui.getLanguage() ? "Returning to main menu..." : "메인 메뉴로 돌아갑니다...") << endl;
+                        break; // 초기 메뉴로 돌아감
+                    }
+
+                    // 카드 번호 유효성 검사
+                    if (cardNumber.empty() || cardNumber.length() != 12 || !std::all_of(cardNumber.begin(), cardNumber.end(), ::isdigit)) {
+                        cout << (ui.getLanguage() ? "Invalid card number. Please try again." : "유효하지 않은 카드 번호입니다. 다시 시도하세요.") << endl;
+                        retryCount++;
+                        continue; // 루프 재시작
+                    }
+                    string atmBankNumber;
+                    string cardBankNumber;
+
+                    // 단일 은행 ATM 모드에서 카드 은행 번호 확인
+                    if (selectedATM->issinglemode()) {
+                        atmBankNumber = selectedATM->getBankNumber();
+                        cardBankNumber = cardNumber.substr(0, 4);
+                        for (int i = 0; i < num_of_banks; i++) {
+                            if (!bank_list[i]->show_card_is(cardNumber)) {
+                                cout << (ui.getLanguage() ? "Invalid card. This ATM only supports the bank it belongs to." : "유효하지 않은 카드입니다. 이 ATM은 해당 은행의 카드만 지원합니다.") << endl;
+                                continue;
+                                }
+                            }
+                        }
+
+                        if (atmBankNumber != cardBankNumber) {
+                            cout << (ui.getLanguage() ? "Invalid card. This ATM only supports the bank it belongs to." : "유효하지 않은 카드입니다. 이 ATM은 해당 은행의 카드만 지원합니다.") << endl;
+                            retryCount++;
+                            continue; // 루프 재시작
+                        }
+                    }
+
+                    // 은행 및 계좌 탐색
+                    Bank* targetBank = nullptr;
+                    Account* targetAccount = nullptr;
+
+                    for (auto bank : bank_list) {
+                        if (bank->getBankNumber() == cardNumber.substr(0, 4)) {
+                            targetBank = bank;
+                            break; // 은행 찾음
+                        }
+                    }
+
+                    if (!targetBank) {
+                        cout << (ui.getLanguage() ? "Bank associated with card not found. Please try again." : "카드와 연결된 은행을 찾을 수 없습니다. 다시 시도하세요.") << endl;
+                        retryCount++;
+                        continue; // 루프 재시작
+                    }
+
+                    for (int i = 0; i < targetBank->getNumOfAccounts(); ++i) {
+                        Account* account = targetBank->getAccount(i);
+                        if (account && account->getCardNumber() == cardNumber) {
+                            targetAccount = account;
+                            break; // 계좌 찾음
+                        }
+                    }
+
+                    if (!targetAccount) {
+                        cout << (ui.getLanguage() ? "Account associated with card not found. Please try again." : "카드와 연결된 계좌를 찾을 수 없습니다. 다시 시도하세요.") << endl;
+                        retryCount++;
+                        continue; // 루프 재시작
+                    }
+
+                    selectedATM->setAccount(targetAccount);
+
+                    // 비밀번호 입력 및 확인
+                    string password;
+                    cout << (ui.getLanguage() ? "Enter your password: " : "비밀번호를 입력하세요: ");
+                    cin >> password;
+
+                    if (targetAccount->getPassword() != password) {
+                        cout << (ui.getLanguage() ? "Incorrect password. Please try again." : "비밀번호가 틀렸습니다. 다시 시도하세요.") << endl;
+                        retryCount++;
+                        continue; // 루프 재시작
+                    }
+
+                    // 인증 성공 시 사용자 메뉴 호출
+                    ui.clearScreen();
+                    cout << (ui.getLanguage() ? "Card authentication successful." : "카드 인증 성공.") << endl;
+
+                    // 사용자 메뉴 출력
+                    while (true) {
+                        ui.showWelcomeMessage();
+                        string userOption;
+                        cin >> userOption;
+
+                        if (cin.fail()) {
+                            cin.clear();
+                            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+                            ui.showErrorMessage();
+                            continue;
+                        }
+
+                        if (userOption == "1") {
+                            if (!selectedATM->deposit()) continue;
+                        }
+                        else if (userOption == "2") {
+                            if (!selectedATM->withdraw()) continue;
+                        }
+                        else if (userOption == "3") {
+                            if (!selectedATM->transfer()) continue;
+                        }
+                        else if (userOption == "4") {
+                            cout << (ui.getLanguage() ? "Exiting to main menu." : "메인 메뉴로 돌아갑니다.") << endl;
+                            break;
+                        }
+                        else if (startSelection == "/") {
+                            display_atm();
+                            display_account();
+                            // 사용자에게 엔터 키를 누르도록 안내하고 대기
+                            cout << (ui.getLanguage() ? "Press Enter to continue..." : "계속하려면 엔터 키를 누르세요...");
+                            cin.ignore(); // 이전 입력의 개행 문자를 제거
+                            cin.get();    // 엔터 키 입력 대기
+                            // break; // 필요에 따라 유지하거나 제거합니다.
+                        }
+                        else {
+                            cout << (ui.getLanguage() ? "Invalid option. Try again." : "잘못된 입력입니다. 다시 시도하세요.") << endl;
+                        }
+                    }
+                    break; // 사용자 메뉴 종료 후 초기 메뉴로 복귀
+                }
+
+                if (retryCount >= maxRetries) {
+                    cout << (ui.getLanguage() ? "Maximum retries exceeded. Returning to main menu." : "최대 시도 횟수를 초과했습니다. 메인 메뉴로 돌아갑니다.") << endl;
+                    break;
+                }
+            }
         }
+
         else if (startSelection == "5") {  // 거래 내역 보기
             ui.clearScreen();
             cout << (ui.getLanguage() ? "[This menu is available only for administrators]" : "[관리자에게만 제공되는 메뉴입니다]") << endl;
@@ -2212,7 +2464,7 @@ int main() {
                     cout << (ui.getLanguage() ? "[Administrator authentication failed] Return to Main Menu" : "[관리자 인증 실패] 메인 메뉴로 돌아갑니다.") << endl;
                     break;
                 }
-                
+
             }
             else if (administrator == "2") {
                 cout << (ui.getLanguage() ? "Returning to Main Menu" : "메인 메뉴로 돌아갑니다.") << endl;
@@ -2222,17 +2474,21 @@ int main() {
                 cout << (ui.getLanguage() ? "Invalid Syntax" : "잘못된 입력") << endl;
                 continue;
             }
-            
-            
+
+
         }
         else if (startSelection == "6") {  // 종료
             ui.showTransitionMessage(ui.getLanguage() ? "Exiting system. Goodbye!" : "시스템을 종료합니다. 안녕히 가세요!");
             break;
         }
         else if (startSelection == "/") {
-            display_atm(atm_list, ui);
-            display_account(bank_list, ui);
-            break;
+            display_atm();
+            display_account();
+            // 사용자에게 엔터 키를 누르도록 안내하고 대기
+            cout << (ui.getLanguage() ? "Press Enter to continue..." : "계속하려면 엔터 키를 누르세요...");
+            cin.ignore(); // 이전 입력의 개행 문자를 제거
+            cin.get();    // 엔터 키 입력 대기
+            // break; // 필요에 따라 유지하거나 제거합니다.
         }
         else {
             cout << (ui.getLanguage() ? "Invalid input. Try again.\n" : "잘못된 입력입니다. 다시 시도하세요.\n");
