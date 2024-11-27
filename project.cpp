@@ -698,21 +698,44 @@ public:
 };
 
 
-void display_atm() {
-    for (int i = 0; i < num_of_ATM; i++) {
-        cout << "ATM[SN:" << atm_list[i]->getatmNumber() << "] remaining cash : {KRW 50000 : " << atm_list[i]->getremainingcash(3) << ", KRW 10000 : " << atm_list[i]->getremainingcash(2) << ", KRW 5000 : " << atm_list[i]->getremainingcash(1)
-            << ", KRW 1000 : " << atm_list[i]->getremainingcash(0) << "} " << endl;
+
+void display_atm(vector<ATM*> atm_list, Interface ui) {
+    if (atm_list.empty()) {
+        cout << (ui.getLanguage() ? "There are no ATMs created." : "생성된 ATM이 없습니다.") << endl;
     }
-}
-
-void display_account() {
-    for (int i = 0; i < num_of_banks; i++) {
-        for (int j = 0; j < bank_list[i]->getNumOfAccounts(); j++) {
-
-            cout << "Account[Bank:" << bank_list[i]->getBankName() << ", No : " << bank_list[i]->access_to_account(j)->getAccountNumber() << ", Owner : " << bank_list[i]->access_to_account(j)->getOwnerName() << "]"
-                << " balance: " << bank_list[i]->access_to_account(j)->getAvailableFund() << endl;
+    else {
+        for (int i = 0; i < num_of_ATM; i++) {
+            cout << "ATM[SN:" << atm_list[i]->getatmNumber() << "] remaining cash : {KRW 50000 : " << atm_list[i]->getremainingcash(3) << ", KRW 10000 : " << atm_list[i]->getremainingcash(2) << ", KRW 5000 : " << atm_list[i]->getremainingcash(1)
+                << ", KRW 1000 : " << atm_list[i]->getremainingcash(0) << "} " << endl;
         }
     }
+
+}
+void display_account(vector<Bank*> bank_list, Interface ui) {
+    if (num_of_banks == 0) {
+        cout << (ui.getLanguage() ? "There are no Banks created." : "생성된 은행이 없습니다.") << endl;
+    }
+    else {
+        bool account_exist = false;
+        for (int i = 0; i < num_of_banks; i++) {
+            if (bank_list[i]->getNumOfAccounts() != 0) {
+                account_exist = true;
+            }
+        }
+        if (!account_exist) {
+            cout << (ui.getLanguage() ? "There are no Accounts created." : "생성된 계좌가 없습니다.") << endl;
+        }
+        else {
+            for (int i = 0; i < num_of_banks; i++) {
+                for (int j = 0; j < bank_list[i]->getNumOfAccounts(); j++) {
+
+                    cout << "Account[Bank:" << bank_list[i]->getBankName() << ", No : " << bank_list[i]->access_to_account(j)->getAccountNumber() << ", Owner : " << bank_list[i]->access_to_account(j)->getOwnerName() << "]"
+                        << " balance: " << bank_list[i]->access_to_account(j)->getAvailableFund() << endl;
+                }
+            }
+        }
+    }
+
 }
 
 
@@ -1081,8 +1104,8 @@ void ATM::userMenu(ATM* selectedATM) {
         } 
         else if (selection == "/") {
             cout << "Displaying ATM and account details..." << endl;
-            display_atm();
-            display_account();
+            display_atm(atm_list, ui);
+            display_account(bank_list, ui);
             continue;
         } else if (selection == "admin") {
             cout << "Accessing admin menu..." << endl;
@@ -2106,8 +2129,8 @@ int main() {
                     break;
                 }
                 else if (bankSelection == "/") {
-                    display_atm();
-                    display_account();
+                    display_atm(atm_list, ui);
+                    display_account(bank_list, ui);
                     cout << (ui.getLanguage() ? "Press Enter to continue..." : "계속하려면 엔터 키를 누르세요...");
                     cin.ignore(); // 이전 입력의 개행 문자를 제거
                     cin.get();    
@@ -2329,8 +2352,8 @@ int main() {
                     break;
                 }
                 else if (ATMSelection == "/") {
-                    display_atm();
-                    display_account();
+                    display_atm(atm_list, ui);
+                    display_account(bank_list, ui);
                     cout << (ui.getLanguage() ? "Press Enter to continue..." : "계속하려면 엔터 키를 누르세요...");
                     cin.ignore(); // 이전 입력의 개행 문자를 제거
                     cin.get();    
@@ -2546,8 +2569,8 @@ int main() {
                             break;
                         } 
                         else if (startSelection == "/") {
-                            display_atm();
-                            display_account();
+                            display_atm(atm_list, ui);
+                            display_account(bank_list, ui);
                             // 사용자에게 엔터 키를 누르도록 안내하고 대기
                             cout << (ui.getLanguage() ? "Press Enter to continue..." : "계속하려면 엔터 키를 누르세요...");
                             cin.ignore(); // 이전 입력의 개행 문자를 제거
@@ -2621,18 +2644,24 @@ int main() {
             break;
         }
         else if (startSelection == "/") {
-            // ATM 및 계정 정보를 표시하는 함수 호출
-            display_atm();
-            display_account();
+             // ATM 및 은행 목록 출력
+            if (atm_list.empty()) {
+                cout << (ui.getLanguage() ? "There are no ATMs created." : "생성된 ATM이 없습니다.") << endl;
+            } else {
+                display_atm(atm_list, ui);
+            }
         
-            // 사용자에게 Enter 키를 누르도록 안내
-            cout << (ui.getLanguage() ? "Press Enter to continue..." : "계속하려면 Enter 키를 누르세요...");
-            cin.ignore(); // 이전 입력의 개행 문자를 제거
-            cin.get();    // Enter 키 입력 대기
+            if (bank_list.empty()) {
+                cout << (ui.getLanguage() ? "There are no Banks created." : "생성된 은행이 없습니다.") << endl;
+            } else {
+                display_account(bank_list, ui);
+            }
         
             // 초기화면으로 돌아가기
-            ui.showStartScreen();
-            continue; // 메인 메뉴로 돌아가기
+            cout << (ui.getLanguage() ? "Press Enter to return to the main menu..." : "메인 메뉴로 돌아가려면 엔터를 누르세요...") << endl;
+            cin.ignore();  // 이전 입력 버퍼 제거
+            cin.get();     // 엔터 입력 대기
+            continue;  
         }
 
         else {
