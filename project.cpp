@@ -76,7 +76,7 @@ public:
     double getAvailableFund() { return available_fund; }
     string getCardNumber() { return card_number; }
     string getPassword() { return password; }
-    string getBankName() {return account_bank->getBankName() }
+    string getBankName();
 };
 
 class Bank {
@@ -115,12 +115,13 @@ public:
     Account* getAccount(int index) const;
     int getNumOfAccounts() const;
     Account* access_to_account(int i);
-    Account* access_to_account_by_num(string num)
+    Account* access_to_account_by_num(string num);
     int calculateFee(string transaction_type, string cardBank, string target_bank);
     bool hasAccount(string accountnumber);
     void increase_receiver_balance(string receiver_account_number, double amount);
     bool show_authorize(string account_num, string input_password);
 };
+
 class Interface {
 private:
     bool isEng;
@@ -582,23 +583,23 @@ private:
     string owner_account;
     string receiver_bank;
     string receiver_account;
-    string transfer_type; 
+    string transfer_type;
     /*1. 입금 : 거래ID, 카드 번호, 거래 유형, 금액, 입금 유형, 사용중인 ATM은행명, SN넘버, 계좌주명, 계좌 은행명, 계좌 번호
     2. 출금 : 거래 ID, 카드 번호, 거래 유형, 금액, 사용중인 ATM은행명, SN넘버, 계좌주명, 계좌 은행명, 계좌 번호
         3. 이체 - 현금 : 거래 ID, 카드 번호, 거래 유형, 금액, 받는 계좌 은행명 및 번호, 이체 유형, 사용된 ATM 정보
         4. 이체 - 계좌 : 거래 ID, 카드 번호, 거래 유형, 금액, 보내는 계좌 은행명 및 계좌 소유주, 번호, 이체 유형, 사용된 ATM 정보
-        ->걍 아무 사진 캡하믄 댐*/   
+        ->걍 아무 사진 캡하믄 댐*/
 
 public:
     record(const string& parameter1, const string& parameter2,
-        const string& parameter3, const string& parameter4,
+        const string& parameter3, const int& parameter4,
         const string& parameter5, const string& parameter6,
         const string& parameter7, const string& parameter8,
         const string& parameter9, const string& parameter10 = "") {
         transactionID = parameter1;
         cardNumber = parameter2;
         transactionType = parameter3;
-        amount = stoi(parameter4); // parameter4는 금액으로 처리됨
+        amount = parameter4; // parameter4는 금액으로 처리됨
 
         if (parameter3 == "Deposit") {
             deposit_type = parameter5;  // 입금 유형
@@ -608,7 +609,7 @@ public:
             owner_bank = parameter9;    // 계좌 은행명
             owner_account = parameter10; // 계좌 번호
         }
-        else if (parameter3 == "Withdrawal") {
+        else if (parameter3 == "Withdraw") {
             atm_bank = parameter5;      // 사용된 ATM 은행
             SN = parameter6;            // ATM SN 번호
             owner = parameter7;         // 계좌 소유주명
@@ -668,7 +669,7 @@ public:
             cout << (ui->getLanguage() ? "Owner Bank: " : "계좌 은행: ") << owner_bank << endl;
             cout << (ui->getLanguage() ? "Owner Account: " : "계좌 번호: ") << owner_account << endl;
         }
-        else if (transaction_type == "Withdrawal") {
+        else if (transaction_type == "Withdraw") {
             cout << (ui->getLanguage() ? "ATM Bank: " : "ATM 은행: ") << atm_bank << endl;
             cout << (ui->getLanguage() ? "ATM Serial Number: " : "ATM SN 번호: ") << SN << endl;
             cout << (ui->getLanguage() ? "Owner Name: " : "계좌주명: ") << owner << endl;
@@ -731,6 +732,7 @@ private:
     int loginAttempts = 0;   // 로그인 시도 횟수
     Bank* primaryBank; // 주 은행
     bool isSingleBankMode; // Single Bank 모드 여부
+    
 
 public:
     ATM(Bank* atmBank, bool issingle, int arr[4], const string& atmId, Interface* uiinterface)
@@ -778,7 +780,11 @@ public:
     bool transfer();
     void processTransaction(int depositAmount, const string& cardBank);
     string transactionid();
-    void transaction_recording(string transaction_type, int amount);
+    void transaction_recording(const string& parameter1, const string& parameter2,
+        const string& parameter3, const int& parameter4,
+        const string& parameter5, const string& parameter6,
+        const string& parameter7, const string& parameter8,
+        const string& parameter9, const string& parameter10 = "");
     //void display_history(const string& card_number);
     void setAccount(Account* acc) {
         account = acc;
@@ -935,9 +941,9 @@ int Bank::getNumOfAccounts() const {
     return num_of_accounts;
 }
 Account* Bank::access_to_account(int i) { return accounts[i]; }
-Account* Bank::access_to_account_by_num(string num){
+Account* Bank::access_to_account_by_num(string num) {
     for (int i = 0; i < this->getNumOfAccounts(); i++) {
-        if (num == accounts[i]) {
+        if (num == accounts[i]->getAccountNumber()) {
             return accounts[i];
         }
     }
@@ -995,7 +1001,7 @@ bool Bank::show_authorize(string account_num, string input_password) {
     return false;
 }
 
-
+string Account::getBankName() { return account_bank->getBankName(); }
 
 string ATM::make_atmNumber(Bank* atmBank) {
     srand(time(0));
@@ -1383,7 +1389,7 @@ bool ATM::deposit() {
             depositAmount = m1 * 1000 + m2 * 5000 + m3 * 10000 + m4 * 50000;
 
             // 거래 기록 저장
-            transaction_recording(transactionid(), account->getCardNumber(), "Deposit", depositAmount, "(Cash Deposit)", getatmbank(), getatmNumber(), account->getOwnerName(), account->getBankName(),account->getAccountNumber());
+            transaction_recording(transactionid(), account->getCardNumber(), "Deposit", depositAmount, "(Cash Deposit)", getatmbank(), getatmNumber(), account->getOwnerName(), account->getBankName(), account->getAccountNumber());
             ui->showDepositAmount(depositAmount);
             processTransaction(depositAmount, cardBank);
             return true;
@@ -1798,7 +1804,7 @@ bool ATM::transfer() {
             bank->increase_receiver_balance(account_num, transferAmount);
 
             if (fee_account_calculator(2000)) {
-                transaction_recording(transactionid(), account->getCardNumber(), "Account Transfer", transferAmount, getatmbank(), getatmNumber(), bank->access_to_account_by_num(account_num)->getOwnerName(), bank->access_to_account_by_num(account_num)->getAccountNumber(), "(Account transfer)");
+                transaction_recording(transactionid(), account->getCardNumber(), "Account Transfer", transferAmount, getatmbank(), getatmNumber(), bank->getBankName(), bank->access_to_account_by_num(account_num)->getOwnerName(), bank->access_to_account_by_num(account_num)->getAccountNumber(), "(Account transfer)");
 
                 ui->showTransferSuccessUI(account->getAvailableFund());
                 return true;
@@ -1848,10 +1854,10 @@ string ATM::transactionid() {
 
 ///////거래 내역 기록
 void ATM::transaction_recording(const string& parameter1, const string& parameter2,
-    const string& parameter3, const string& parameter4,
+    const string& parameter3, const int& parameter4,
     const string& parameter5, const string& parameter6,
     const string& parameter7, const string& parameter8,
-    const string& parameter9, const string& parameter10 = "") {
+    const string& parameter9, const string& parameter10) {
     if (num_of_transaction >= 100) {
         cout << (ui->getLanguage() ? "Transaction history is full. Cannot record more transactions."
             : "거래 기록이 가득 찼습니다. 더 이상 기록할 수 없습니다.") << endl;
@@ -1859,23 +1865,37 @@ void ATM::transaction_recording(const string& parameter1, const string& paramete
     }
     record* new_record = nullptr;
 
-    if (transaction_type == "Deposit") {
+    if (parameter3 == "Deposit") {
         new_record = new record(parameter1, parameter2,
             parameter3, parameter4,
             parameter5, parameter6,
             parameter7, parameter8,
             parameter9, parameter10);
     }
-    else{
+    else if (parameter3 == "Withdraw"){
         new_record = new record(parameter1, parameter2,
             parameter3, parameter4,
             parameter5, parameter6,
             parameter7, parameter8,
             parameter9);
     }
+    else if (parameter3 == "Cash Transfer") {
+        new_record = new record(parameter1, parameter2,
+            parameter3, parameter4,
+            parameter5, parameter6,
+            parameter7, parameter8,
+            parameter9);
+    }
+    else if (parameter3 == "Account Transfer") {
+        new_record = new record(parameter1, parameter2,
+            parameter3, parameter4,
+            parameter5, parameter6,
+            parameter7, parameter8,
+            parameter9, parameter10);
+    }
 
     //transaction_records[num_of_transaction++] = new record(transactionid(), account->getCardNumber(), transaction_type, amount);
-    cout << "Debug: Adding transaction record. Type: " << transaction_type << ", Amount: " << amount << endl;
+    cout << "Debug: Adding transaction record. Type: " << parameter3 << ", Amount: " << parameter4 << endl;
     transaction_records.push_back(new_record);
     cout << "Debug: Transaction added. Total records: " << transaction_records.size() << endl;
 
@@ -1916,14 +1936,14 @@ void display_history(
     ui.clearScreen();
     ui.showTransitionMessage(ui.getLanguage() ? "All Transaction History" : "전체 거래 내역");
 
-    vector<string> transaction_types = { "Deposit", "Withdrawal", "Cash Transfer", "Account Transfer" };
+    vector<string> transaction_types = { "Deposit", "Withdraw", "Cash Transfer", "Account Transfer" };
     for (const auto& record : transaction_records) {
         for (const auto& type : transaction_types) {
             if (type == record->getTransactionType()) {
                 record->display_one_transaction(const_cast<Interface*>(&ui), type);
             }
         }
-        
+
     }
     cout << (ui.getLanguage() ? "Press any key to continue..." : "계속하려면 아무 키나 누르세요...") << endl;
     cin.ignore();
@@ -1945,10 +1965,10 @@ void display_history(
         file << "************Transaction History************" << endl;
         for (const auto& record : transaction_records) {
             file << "-------------------------------------------" << endl;
-            file << "Transaction ID: " << record->gettransactionID() << endl;
-            file << "Card Number: " << record->getcardnumber() << endl;
-            file << "Transaction Type: " << record->gettransaction_type() << endl;
-            file << "Amount: " << record->getamount() << endl;
+            file << "Transaction ID: " << record->getTransactionID() << endl;
+            file << "Card Number: " << record->getCardNumber() << endl;
+            file << "Transaction Type: " << record->getTransactionType() << endl;
+            file << "Amount: " << record->getAmount() << endl;
             file << "-------------------------------------------" << endl;
         }
         file.close();
@@ -2604,21 +2624,35 @@ int main() {
                         break; // 초기 메뉴로 돌아감
                     }
                     else if (cardNumber == "admin" || cardNumber == "ADMIN" || cardNumber == "Admin") {
-                        cout << (ui.getLanguage() ? "Authentication successful. Accessing transaction history...\n"
-                            : "인증 성공. 거래 내역을 확인합니다...\n");
+                        cout << (ui.getLanguage() ? "[Administrator Authentication] Please enter the password.\n"
+                            : "[관리자 인증] 비밀번호를 입력해주세요.\n");
+                        string adminpw;
+                        cin >> adminpw;
+                        if (adminpw == "admin"){
+                            cout << (ui.getLanguage() ? "Authentication successful. Accessing transaction history...\n"
+                                : "인증 성공. 거래 내역을 확인합니다...\n");
 
-                        if (atm_list.empty()) {
-                            cout << (ui.getLanguage() ? "No ATMs available to display transaction history."
-                                : "거래 내역을 표시할 ATM이 없습니다.") << endl;
+                            if (atm_list.empty()) {
+                                cout << (ui.getLanguage() ? "No ATMs available to display transaction history."
+                                    : "거래 내역을 표시할 ATM이 없습니다.") << endl;
+                            }
+                            else {
+                                for (size_t i = 0; i < atm_list.size(); ++i) {
+                                    cout << (ui.getLanguage() ? "ATM ID: " : "ATM 고유 번호: ") << atm_list[i]->getatmID() << endl;
+                                    atm_list[i]->transactionHistory("admin");
+                                    continue;
+                                }
+                            }
                         }
                         else {
-                            for (size_t i = 0; i < atm_list.size(); ++i) {
-                                cout << (ui.getLanguage() ? "ATM ID: " : "ATM 고유 번호: ") << atm_list[i]->getatmID() << endl;
-                                atm_list[i]->transactionHistory("admin");
-                            }
+                            cout << (ui.getLanguage() ? "Authentication Failed.\n"
+                                : "인증 실패\n");
+                            continue;
+                        }
+                        
                     }
 
-                    // 카드 번호 유효성 검사
+                        // 카드 번호 유효성 검사
                     if (cardNumber.empty() || cardNumber.length() != 12 || !std::all_of(cardNumber.begin(), cardNumber.end(), ::isdigit)) {
                         cout << (ui.getLanguage() ? "Invalid card number. Please try again." : "유효하지 않은 카드 번호입니다. 다시 시도하세요.") << endl;
                         cout << (ui.getLanguage() ? "Press Enter to continue..." : "계속하려면 엔터 키를 누르세요...");
@@ -2775,9 +2809,10 @@ int main() {
                     break; // 사용자 메뉴 종료 후 초기 메뉴로 복귀
                 }
 
-                if (exitToMainMenu) break; // 카드 인증 루프 탈출
+            if (exitToMainMenu) break; // 카드 인증 루프 탈출
 
             }
+            
         }
         else if (startSelection == "5") {  // 거래 내역 보기
             while (true) { // 반복 처리
@@ -2806,6 +2841,7 @@ int main() {
                             for (size_t i = 0; i < atm_list.size(); ++i) {
                                 cout << (ui.getLanguage() ? "ATM ID: " : "ATM 고유 번호: ") << atm_list[i]->getatmID() << endl;
                                 atm_list[i]->transactionHistory("admin");
+                                
                             }
 
                         }
