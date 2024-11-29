@@ -1313,6 +1313,7 @@ bool ATM::withdraw() {
 bool ATM::transfer() {
     while (true) {
         ui->showTransferOptions();
+        cout << (ui->getLanguage() ? "Select an option: " : "옵션을 선택하세요: ");
         int input = globalinput_int(atm_list, bank_list, ui);
         if (input == 1) {
             cout << (ui->getLanguage() ? "Please enter the account to transfer or '0' to cancel." : "송금할 계좌를 입력하거나 '0'을 눌러 취소하세요.") << endl;
