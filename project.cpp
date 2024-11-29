@@ -35,6 +35,8 @@ string globalinput_string(vector<ATM*> atm_list, vector<Bank*> bank_list, Interf
 double globalinput_double(vector<ATM*> atm_list, vector<Bank*> bank_list, Interface ui);
 int globalinput_int(vector<ATM*> atm_list, vector<Bank*> bank_list, Interface ui);
 
+// ================================== ACCOUNT ================================== \\
+
 class Account {
 private:
     string account_number;
@@ -65,6 +67,8 @@ public:
     string getPassword() { return password; }
     string getBankName();
 };
+
+// ================================== BANK ================================== \\
 
 class Bank {
 private:
@@ -105,6 +109,8 @@ public:
     void increase_receiver_balance(string receiver_account_number, double amount);
     bool show_authorize(string account_num, string input_password);
 };
+
+// ================================== INTERFACE ================================== \\
 
 class Interface {
 private:
@@ -315,6 +321,8 @@ public:
     }
 };
 
+// ================================== RECORD ================================== \\
+
 class record {
 private:
     string transactionID;
@@ -465,6 +473,9 @@ public:
         cout << "-------------------------------------------" << endl;
     }
 };
+
+// ================================== CARD ================================== \\
+
 class Card {
 public:
     string cardNumber;
@@ -474,6 +485,8 @@ public:
     Card(string number, string pwd, bool admin = false)
         : cardNumber(number), password(pwd), isAdmin(admin) {}
 };
+
+// ================================== ATM ================================== \\
 
 class ATM {
 private:
@@ -633,6 +646,8 @@ void display_account(vector<Bank*> bank_list, Interface ui) {
     }
 }
 
+// ================================== BANK ================================== \\
+
 bool Bank::isPositive(int input) {
     if (input < 0) {
         cout << (ui->getLanguage() ? "Invalid Number\nTry Again" : "올바른 숫자가 아닙니다.\n다시 시도해 주세요.") << endl;
@@ -773,7 +788,11 @@ bool Bank::show_authorize(string account_num, string input_password) {
     return false;
 }
 
+// ================================== ACCOUNT ================================== \\
+
 string Account::getBankName() { return account_bank->getBankName(); }
+
+// ================================== ATM ================================== \\
 
 void ATM::singleBankMode(bool SingleBankMode) {
     SingleBankMode = isSingleBankMode;
@@ -1728,6 +1747,8 @@ int getIntegerInput(const string& prompt, Interface* ui) {
         }
     }
 }
+
+// ================================== MAIN ================================== \\
 
 int main() {
     Interface ui;
