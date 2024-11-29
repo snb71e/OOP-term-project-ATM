@@ -548,11 +548,11 @@ public:
     const vector<record*>& getTransactionRecords() const {
         return transaction_records;
     }
-    bool getIsBilingual() const { return isBilingual; }  
+    bool getIsBilingual() const { return isBilingual; }
     string getLanMode() {
-        if (isBilingual) { return "Bilingual";}
-        else {return "Unilingual";}
-        }
+        if (isBilingual) { return "Bilingual"; }
+        else { return"Uinbilingual"; }
+    }
     Interface* getAtmInterface() { return atmInterface; }
     void setAtmLanguage(bool isEng) {
         atmInterface->setLanguage(isEng);
@@ -582,7 +582,7 @@ void display_atm(vector<ATM*> atm_list, Interface ui) {
     else {
         cout << "==============================ATM==============================\n";
         for (int i = 0; i < atm_list.size(); i++) {
-            cout << "ATM [SN:" << atm_list[i]->getatmID() << "]\nremaining cash : {KRW 50000 : " << atm_list[i]->getremainingcash(3) << "KRW 10000 : " << atm_list[i]->getremainingcash(2) << ", KRW 5000 : " << atm_list[i]->getremainingcash(1)
+            cout << "ATM [SN:" << atm_list[i]->getatmID() << "]\nremaining cash : {KRW 50000 : " << atm_list[i]->getremainingcash(3) << ", KRW 10000 : " << atm_list[i]->getremainingcash(2) << ", KRW 5000 : " << atm_list[i]->getremainingcash(1)
                 << ", KRW 1000 : " << atm_list[i]->getremainingcash(0) << "} " << endl;
             cout << "---------------------------------------------------------------\n";
         }
@@ -1217,7 +1217,6 @@ bool ATM::fee_account_calculator(int fee) {
 }
 
 bool ATM::withdraw() {
-    long long int withdrawAmount;
     if (ui == nullptr || account == nullptr) {
         cout << (ui->getLanguage() ? "Error: Account is not initialized." : "계좌가 개설되어 있지 않습니다.") << endl;
         cout << (ui->getLanguage() ? "Press Enter to continue..." : "계속하려면 Enter를 누르세요...");
@@ -1228,31 +1227,11 @@ bool ATM::withdraw() {
     string cardBank = account->getAccountNumber().substr(0, 4);
     int withdrawalCount = 0;
     while (withdrawalCount < 3) {
-        cout << (ui->getLanguage() ? "\n=== Withdraw Menu ===\nAccount Balance: " : "\n=== 출금 메뉴 ===\n계좌 잔액: ") << account->getAvailableFund() << " won\n";
+        long long int withdrawAmount = 0;
+        cout << (ui->getLanguage() ? "\n=== Withdraw Menu ===\nAccount Balance: " : "\n=== 출금 메뉴 ===\n계좌 잔액: ")
+            << account->getAvailableFund() << " won\n";
         cout << (ui->getLanguage() ? "<The Amount to withdraw>" : "<출금할 금액>") << endl;
-        int m1 = 0;
-        int m2 = 0;
-        int m3 = 0;
-        int m4 = 0;
-        cout << (ui->getLanguage() ? "Enter the number of bills for each denomination (or enter '0' for all to cancel):\n"
-            : "각 지폐의 개수를 입력하세요 (또는 전부 '0'을 입력해 취소):\n");
-        while (m1 + m2 + m3 + m4 <= 50) {
-            m1 = getValidInput((ui->getLanguage() ? "Number of 1,000 bills: " : "1,000원 개수: "), ui);
-            m2 = getValidInput((ui->getLanguage() ? "Number of 5,000 bills: " : "5,000원 개수: "), ui);
-            m3 = getValidInput((ui->getLanguage() ? "Number of 10,000 bills: " : "10,000원 개수: "), ui);
-            m4 = getValidInput((ui->getLanguage() ? "Number of 50,000 bills: " : "50,000원 개수: "), ui);
-            break;
-        }
-        if (m1 + m2 + m3 + m4 > 50) {
-            cout << (ui->getLanguage() ? "Do not insert more than number of 50 bills" : "현금을 50장 이상 넣을 수 없습니다.");
-            for (size_t i = 0; i < atm_list.size(); ++i) {
-                cout << (ui->getLanguage() ? "\nATM ID: " : "\nATM 고유 번호: ") << atm_list[i]->getatmID() << endl;
-                atm_list[i]->transactionHistory(true);
-                continue;
-            }
-            exit(0);
-        }
-        withdrawAmount = (m1 * 1000) + (m2 * 5000) + (m3 * 10000) + (m4 * 50000);
+        withdrawAmount = globalinput_int(atm_list, bank_list, ui);
         if (withdrawAmount == 0) {
             cout << (ui->getLanguage() ? "Returning to Menu..." : "메뉴로 돌아갑니다...") << endl;
             cout << (ui->getLanguage() ? "Press Enter to continue..." : "계속하려면 Enter를 누르세요...") << endl;
@@ -1297,21 +1276,13 @@ bool ATM::withdraw() {
             "수수료 납부 성공. ATM 현금이 업데이트되었습니다.") << endl;
         account->decrease_account_balance(withdrawAmount + fee);
         dispenseCash(withdrawAmount);
-        withdrawalCount++;
         transaction_recording(transactionid(), account->getCardNumber(), "Withdraw", withdrawAmount, getatmbank(), getatmNumber(), account->getOwnerName(), account->getBankName(), account->getAccountNumber());
         cout << (ui->getLanguage() ? "Withdrawal Successful!" : "출금 성공!") << endl;
         cout << (ui->getLanguage() ? "Current Balance: " : "현재 잔액: ") << account->getAvailableFund() << " won\n";
-        int continueWithdrawal = globalinput_int(atm_list, bank_list, ui);
         cout << (ui->getLanguage() ? "Would you like to make another withdrawal? (1: Yes, 0: No): " : "추가 인출을 원하시면 1을, 종료하시려면 0을 입력하세요: ");
+        int continueWithdrawal = globalinput_int(atm_list, bank_list, ui);
         if (continueWithdrawal == 0) {
             cout << (ui->getLanguage() ? "Returning to User Menu..." : "사용자 메뉴로 돌아갑니다...") << endl;
-            cout << (ui->getLanguage() ? "Press Enter to continue..." : "계속하려면 Enter를 누르세요...");
-            cin.ignore();
-            cin.get();
-            return false;
-        }
-        else if (continueWithdrawal != 1) {
-            cout << (ui->getLanguage() ? "Error: Invalid input. Ending withdrawal session." : "오류: 잘못된 입력입니다. 출금 세션을 종료합니다.") << endl;
             cout << (ui->getLanguage() ? "Press Enter to continue..." : "계속하려면 Enter를 누르세요...");
             cin.ignore();
             cin.get();
@@ -1321,15 +1292,21 @@ bool ATM::withdraw() {
             withdrawalCount++;
             continue;
         }
+        else if (continueWithdrawal != 1) {
+            cout << (ui->getLanguage() ? "Error: Invalid input. Ending withdrawal session." : "오류: 잘못된 입력입니다. 출금 세션을 종료합니다.") << endl;
+            cout << (ui->getLanguage() ? "Press Enter to continue..." : "계속하려면 Enter를 누르세요...");
+            cin.ignore();
+            cin.get();
+            return false;
+        }
+        continue;
     }
-    if (withdrawalCount == 3) {
-        cout << (ui->getLanguage() ? "Error: Withdrawal limit exceeded. Returning to User Menu..." : "오류: 최대 인출 횟수를 초과했습니다. 사용자 메뉴로 돌아갑니다...") << endl;
-        cout << (ui->getLanguage() ? "Press Enter to continue..." : "계속하려면 Enter를 누르세요...");
-        cin.ignore();
-        cin.get();
-        return false;
-    }
-    return true;
+    cout << (ui->getLanguage() ? "Error: Withdrawal limit exceeded. Returning to User Menu..."
+        : "오류: 최대 인출 횟수를 초과했습니다. 사용자 메뉴로 돌아갑니다...") << endl;
+    cout << (ui->getLanguage() ? "Press Enter to continue..." : "계속하려면 Enter를 누르세요...");
+    cin.ignore();
+    cin.get();
+    return false;
 }
 
 bool ATM::transfer() {
@@ -1568,7 +1545,7 @@ void display_history(bool exit, const vector<record*>& transaction_records, cons
         ui.clearScreen();
         ui.showTransitionMessage(ui.getLanguage() ? "All Transaction History" : "전체 거래 내역");
     }
-    
+
     vector<string> transaction_types = { "Deposit", "Withdraw", "Cash Transfer", "Account Transfer" };
     for (const auto& record : transaction_records) {
         for (const auto& type : transaction_types) {
@@ -2026,7 +2003,6 @@ int main() {
                             cout << (ui.getLanguage() ? "ATM ID: " : "ATM 고유 번호: ") << atm_list[i]->getatmID() << endl;
                             cout << (ui.getLanguage() ? "ATM Bank: " : "ATM 은행: ") << atm_list[i]->getatmbank() << endl;
                             cout << (ui.getLanguage() ? "ATM Mode: " : "ATM 모드: ");
-                            cout << (ui.getLanguage() ? "Language Mode: " : "언어 모드: ") << atm_list[i]->getLanMode() << endl;
                             if (atm_list[i]->issinglemode()) {
                                 cout << (ui.getLanguage() ? "Single" : "단일") << endl;
                             }
