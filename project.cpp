@@ -54,7 +54,8 @@ public:
         account_bank = bank;
         password = pwd;
     }
-    ~Account() {}
+    ~Account() {
+    }
     double increase_account_balance(double amount) { return available_fund += amount; }
     double decrease_account_balance(double amount) { return available_fund -= amount; }
     string getAccountNumber() { return account_number; }
@@ -582,13 +583,12 @@ void display_atm(vector<ATM*> atm_list, Interface ui) {
     else {
         cout << "==============================ATM==============================\n";
         for (int i = 0; i < atm_list.size(); i++) {
-            cout << "ATM [SN:" << atm_list[i]->getatmID() << "]\nremaining cash : {KRW 50000 : " << atm_list[i]->getremainingcash(3) << "KRW 10000 : " << atm_list[i]->getremainingcash(2) << ", KRW 5000 : " << atm_list[i]->getremainingcash(1)
+            cout << "ATM [SN:" << atm_list[i]->getatmID() << "]\nremaining cash : {KRW 50000 : " << atm_list[i]->getremainingcash(3) << ", KRW 10000 : " << atm_list[i]->getremainingcash(2) << ", KRW 5000 : " << atm_list[i]->getremainingcash(1)
                 << ", KRW 1000 : " << atm_list[i]->getremainingcash(0) << "} " << endl;
             cout << "---------------------------------------------------------------\n";
         }
         cout << "" << endl;
     }
-
 }
 
 void display_account(vector<Bank*> bank_list, Interface ui) {
@@ -649,6 +649,7 @@ bool Bank::deleteAccount(const string& accountNumber) {
             return true;
         }
     }
+    num_of_accounts--;
     return false;
 }
 
@@ -688,7 +689,7 @@ Account* Bank::make_account(string new_owner_name, string bankname, long long in
     accounts[num_of_accounts++] = new_account;
     cout << (ui->getLanguage() ? "Account is initialized.\n" : "계좌가 생성되었습니다.\n");
     cout << "======================================================================" << endl;
-    cout << (ui->getLanguage() ? "Account information.\n" : "계좌 정보.\n");
+    cout << (ui->getLanguage() ? "<Account information>\n" : "<계좌 정보>\n");
     cout << (ui->getLanguage() ? "- Owner: " : "- 소유자: ") << new_owner_name << "\n";
     cout << (ui->getLanguage() ? "- Bank Name: " : " - 은행 명: ") << bankname << "\n";
     cout << (ui->getLanguage() ? "- Account Number: " : " - 계좌 번호: ") << account_number << "\n";
@@ -1746,15 +1747,46 @@ int main() {
                 bankSelection = globalinput_string(atm_list, bank_list, ui);
                 if (bankSelection == "1") {
                     string bankName, bankCode;
-                    cout << (ui.getLanguage() ? "Enter the bank name: " : "은행 이름을 입력하세요: ");
-                    bankName = globalinput_string(atm_list, bank_list, ui);
-                    cout << (ui.getLanguage() ? "Bank code is 4 digits." : "은행 코드는 4자리입니다.") << endl;
-                    cout << (ui.getLanguage() ? "Enter the bank code: " : "은행 코드를 입력하세요: ");
+                    bool isSame = false;
                     while (true) {
+                        cout << (ui.getLanguage() ? "Enter the bank name: " : "은행 이름을 입력하세요: ");
+                        bankName = globalinput_string(atm_list, bank_list, ui);
+                        for (int i = 0; i < bank_list.size(); i++) {
+                            if (bank_list[i]->getBankName() == bankName) {
+                                cout << (ui.getLanguage() ? "The bank already exists." : "이미 존재하는 은행입니다.") << endl;
+                                isSame = true;
+                                break;
+                            }
+                        }
+                        if (isSame) {
+                            continue;
+                        }
+                        break;
+                    }
+
+                    cout << (ui.getLanguage() ? "Bank code is 4 digits." : "은행 코드는 4자리입니다.") << endl;
+                    while (true) {
+                        cout << (ui.getLanguage() ? "Enter the bank code: " : "은행 코드를 입력하세요: ");
                         bankCode = globalinput_string(atm_list, bank_list, ui);
-                        if (bankCode.length() == 4)
-                            break;
-                        cout << (ui.getLanguage() ? "Error: Bank code must be 4 digits.\nPlease Try again." : "오류: 은행 코드는 4자리여야 합니다.\n다시 시도해 주세요.") << endl;
+                        if (bankCode.length() != 4) {
+                            cout << (ui.getLanguage()
+                                ? "Error: Bank code must be 4 digits.\nPlease Try again."
+                                : "오류: 은행 코드는 4자리여야 합니다.\n다시 시도해 주세요.")
+                                << endl;
+                            continue;
+                        }
+                        bool isDuplicate = false;
+                        for (int i = 0; i < bank_list.size(); i++) {
+                            if (bank_list[i]->getBankNumber() == bankCode) {
+                                cout << (ui.getLanguage() ? "Bank codes cannot be duplicated." : "은행 코드는 중복될 수 없습니다.") << endl;
+                                isDuplicate = true;
+                                break;
+                            }
+                        }
+                        if (isDuplicate) {
+                            continue;
+                        }
+                        break;
                     }
                     bank_list.push_back(new Bank(bankName, bankCode, &ui));
                     cout << (ui.getLanguage() ? "Bank added successfully.\n" : "은행이 성공적으로 추가되었습니다.\n");
@@ -1809,6 +1841,7 @@ int main() {
                         string(ui.getLanguage() ? "Enter the bank number: " : "은행 번호를 입력하세요: "),
                         &ui
                     );
+                    
                     if (bankChoice < 1 || bankChoice > static_cast<int>(bank_list.size())) {
                         cout << (ui.getLanguage() ? "Invalid bank selection.\n" : "잘못된 은행 선택입니다.\n");
                         cout << (ui.getLanguage() ? "Press Enter to continue..." : "계속하려면 Enter를 누르세요...");
@@ -2071,7 +2104,7 @@ int main() {
                             cout << (ui.getLanguage() ? "ATM ID: " : "ATM 고유 번호: ") << atm_list[i]->getatmID() << endl;
                             cout << (ui.getLanguage() ? "ATM Bank: " : "ATM 은행: ") << atm_list[i]->getatmbank() << endl;
                             cout << (ui.getLanguage() ? "ATM Mode: " : "ATM 모드: ");
-                            cout << (ui.getLanguage() ? "Language Mode: " : "언어 모드: ") << atm_list[i]->getatmbank() << endl;
+                            cout << (ui.getLanguage() ? "Language Mode: " : "언어 모드: ") << atm_list[i]->getLanMode() << endl;
                             if (atm_list[i]->issinglemode()) {
                                 cout << (ui.getLanguage() ? "Single" : "단일") << endl;
                             }
@@ -2136,7 +2169,7 @@ int main() {
                     cout << (ui.getLanguage() ? "ATM Bank: " : "ATM 은행: ") << atm_list[i]->getatmbank() << endl;
                     cout << (ui.getLanguage() ? "ATM Mode: " : "ATM 모드: ")
                         << (atm_list[i]->issinglemode() ? (ui.getLanguage() ? "Single" : "단일") : (ui.getLanguage() ? "Multi" : "다중")) << endl;
-                    cout << (ui.getLanguage() ? "Language Mode: " : "언어 모드: ") << atm_list[i]->getatmbank() << endl;
+                    cout << (ui.getLanguage() ? "Language Mode: " : "언어 모드: ") << atm_list[i]->getLanMode() << endl;
                     cout << (ui.getLanguage() ? "Cash on ATM: " : "ATM 내 현금: ") << atm_list[i]->cashinatm() << endl;
                 }
                 string raw_input;
