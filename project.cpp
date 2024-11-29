@@ -644,12 +644,13 @@ bool Bank::isPositive(int input) {
 bool Bank::deleteAccount(const string& accountNumber) {
     for (int i = 0; i < 100; ++i) {
         if (accounts[i] != nullptr && accounts[i]->getAccountNumber() == accountNumber) {
+            accounts[i] = accounts[num_of_accounts - 1];
             delete accounts[i];
-            accounts[i] = nullptr;
+            accounts[num_of_accounts] == nullptr;
+            num_of_accounts--;
             return true;
         }
     }
-    num_of_accounts--;
     return false;
 }
 
@@ -664,15 +665,14 @@ void Bank::listAccounts() const {
         Account* account = accounts[i];
         cout << std::fixed << std::setprecision(0);
         cout << "======================================================================" << endl;
-        cout << (ui->getLanguage() ? "Account information.\n" : "계좌 정보.\n");
+        cout << (ui->getLanguage() ? "Account information\n" : "계좌 정보\n");
         cout << (ui->getLanguage() ? "- Owner: " : "- 소유자: ") << account->getOwnerName() << "\n";
         cout << (ui->getLanguage() ? "- Bank Name: " : " - 은행 명: ") << bank_name << "\n";
         cout << (ui->getLanguage() ? "- Account Number: " : " - 계좌 번호: ") << account->getAccountNumber() << "\n";
         cout << (ui->getLanguage() ? "- Card Number: " : " - 카드 번호: ") << account->getCardNumber() << "\n";
-        cout << (ui->getLanguage() ? "- Balance: " : " - 잔액: ") << account->getAvailableFund() << (ui->getLanguage() ? "won\n" : "원\n");
+        cout << (ui->getLanguage() ? "- Balance: " : " - 잔액: ") << account->getAvailableFund() << (ui->getLanguage() ? " won\n" : " 원\n");
         cout << "======================================================================" << endl;
     }
-
 }
 
 Account* Bank::make_account(string new_owner_name, string bankname, long long int initial_balance, string password) {
@@ -694,7 +694,7 @@ Account* Bank::make_account(string new_owner_name, string bankname, long long in
     cout << (ui->getLanguage() ? "- Bank Name: " : " - 은행 명: ") << bankname << "\n";
     cout << (ui->getLanguage() ? "- Account Number: " : " - 계좌 번호: ") << account_number << "\n";
     cout << (ui->getLanguage() ? "- Card Number: " : " - 카드 번호: ") << card_number << "\n";
-    cout << (ui->getLanguage() ? "- Initial Balance: " : " - 초기 잔액: ") << initial_balance << (ui->getLanguage() ? "won\n" : "원\n");
+    cout << (ui->getLanguage() ? "- Initial Balance: " : " - 초기 잔액: ") << initial_balance << (ui->getLanguage() ? " won\n" : " 원\n");
     cout << "======================================================================" << endl;
     return new_account;
 }
