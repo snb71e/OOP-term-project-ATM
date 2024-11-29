@@ -1373,9 +1373,8 @@ bool ATM::transfer() {
                 }
                 transferAmount = m1 * 1000 + m2 * 5000 + m3 * 10000 + m4 * 50000;
                 if (fee_cash_calculator(1000)) {
-                    transaction_recording(transactionid(), account->getCardNumber(), "Cash Transfer", transferAmount,
-                        getatmbank(), getatmID(), bank->access_to_account_by_num(account_num)->getBankName(),
-                        bank->access_to_account_by_num(account_num)->getAccountNumber(), "(Cash transfer)");
+                    transaction_recording(transactionid(), account->getCardNumber(), "Cash Transfer", transferAmount, getatmbank(), getatmID(), account->getOwnerName(), account->getBankName(), account->getAccountNumber(), "(Cash transfer)");
+
                     ui->showTransferSuccessUI(account->getAvailableFund());
                     bank->increase_receiver_balance(account_num, transferAmount);
                     cout << (ui->getLanguage() ? "Press Enter to continue..." : "계속하려면 Enter를 누르세요...");
