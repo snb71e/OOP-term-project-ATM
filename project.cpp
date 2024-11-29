@@ -582,7 +582,7 @@ void display_atm(vector<ATM*> atm_list, Interface ui) {
     else {
         cout << "==============================ATM==============================\n";
         for (int i = 0; i < atm_list.size(); i++) {
-            cout << "ATM [SN:" << atm_list[i]->getatmID() << "]\nremaining cash : {KRW 50000 : " << atm_list[i]->getremainingcash(3) << "KRW 10000 : " << atm_list[i]->getremainingcash(2) << ", KRW 5000 : " << atm_list[i]->getremainingcash(1)
+            cout << "ATM [SN:" << atm_list[i]->getatmID() << "]\nremaining cash : {KRW 50000 : " << atm_list[i]->getremainingcash(3) << ", KRW 10000 : " << atm_list[i]->getremainingcash(2) << ", KRW 5000 : " << atm_list[i]->getremainingcash(1)
                 << ", KRW 1000 : " << atm_list[i]->getremainingcash(0) << "} " << endl;
             cout << "---------------------------------------------------------------\n";
         }
@@ -1118,7 +1118,7 @@ bool ATM::fee_cash_calculator(int fee) {
         }
     }
     for (int i = 0; i < 4; i++) {
-        cash[i] += cashAdded[i];
+        cash[i] += cashAdded[3 - i];
     }
     cout << (ui->getLanguage() ? "Fee paid successfully. ATM cash updated." : "수수료 납부 성공. ATM 현금이 업데이트되었습니다.") << endl;
     return true;
@@ -1248,7 +1248,7 @@ bool ATM::withdraw() {
         }
         if (withdrawAmount > account->getAvailableFund()) {
             cout << (ui->getLanguage() ? "Error: Insufficient account balance." : "오류: 계좌 잔액 부족.") << endl;
-            cout << (ui->getLanguage() ? "Returing to Menu..." : "메뉴로 돌아갑니다...") << endl;
+            cout << (ui->getLanguage() ? "Returning to Menu..." : "메뉴로 돌아갑니다...") << endl;
             cout << (ui->getLanguage() ? "Press Enter to continue..." : "계속하려면 Enter를 누르세요...") << endl;
             cin.ignore();
             cin.get();
@@ -1256,7 +1256,7 @@ bool ATM::withdraw() {
         }
         if (!hasSufficientCash(withdrawAmount)) {
             cout << (ui->getLanguage() ? "Error: ATM has insufficient cash." : "오류: ATM에 충분한 현금이 없습니다.") << endl;
-            cout << (ui->getLanguage() ? "Returing to Menu..." : "메뉴로 돌아갑니다...") << endl;
+            cout << (ui->getLanguage() ? "Returning to Menu..." : "메뉴로 돌아갑니다...") << endl;
             cout << (ui->getLanguage() ? "Press Enter to continue..." : "계속하려면 Enter를 누르세요...") << endl;
             cin.ignore();
             cin.get();
@@ -1266,7 +1266,7 @@ bool ATM::withdraw() {
         if (account->getAvailableFund() < withdrawAmount + fee) {
             cout << (ui->getLanguage() ? "Error: Insufficient balance to cover the fee." :
                 "오류: 수수료를 포함한 잔액이 부족합니다.") << endl;
-            cout << (ui->getLanguage() ? "Returing to Menu..." : "메뉴로 돌아갑니다...") << endl;
+            cout << (ui->getLanguage() ? "Returning to Menu..." : "메뉴로 돌아갑니다...") << endl;
             cout << (ui->getLanguage() ? "Press Enter to continue..." : "계속하려면 Enter를 누르세요...") << endl;
             cin.ignore();
             cin.get();
@@ -1373,9 +1373,11 @@ bool ATM::transfer() {
                 }
                 transferAmount = m1 * 1000 + m2 * 5000 + m3 * 10000 + m4 * 50000;
                 if (fee_cash_calculator(1000)) {
-                    transaction_recording(transactionid(), account->getCardNumber(), "Cash Transfer", transferAmount,
-                        getatmbank(), getatmID(), bank->access_to_account_by_num(account_num)->getBankName(),
-                        bank->access_to_account_by_num(account_num)->getAccountNumber(), "(Cash transfer)");
+                    transaction_recording(transactionid(), account->getCardNumber(), "Cash Transfer", transferAmount, getatmbank(), getatmID(), account->getOwnerName(), account->getBankName(), account->getAccountNumber(), "(Cash transfer)");
+                    cash[0] += m1;
+                    cash[1] += m2;
+                    cash[2] += m3;
+                    cash[3] += m4;
                     ui->showTransferSuccessUI(account->getAvailableFund());
                     bank->increase_receiver_balance(account_num, transferAmount);
                     cout << (ui->getLanguage() ? "Press Enter to continue..." : "계속하려면 Enter를 누르세요...");
@@ -1405,6 +1407,13 @@ bool ATM::transfer() {
         else if (input == 2) {
             cout << (ui->getLanguage() ? "Enter account number to transfer or '0' to cancel." : "송금할 계좌 번호를 입력하거나 '0'을 눌러 취소하세요: ") << endl;
             string account_num = globalinput_string(atm_list, bank_list, ui);
+            if (account_num == account->getAccountNumber()) {
+                cout << (ui->getLanguage() ? "Error: Cannot transfer to your own account." : "오류: 자신의 계좌로 송금할 수 없습니다.") << endl;
+                cout << (ui->getLanguage() ? "Press Enter to continue..." : "계속하려면 Enter를 누르세요...");
+                cin.ignore();
+                cin.get();
+                return false;
+            }
             if (account_num == "0") {
                 ui->transactionCancelled();
                 cout << (ui->getLanguage() ? "Press Enter to continue..." : "계속하려면 Enter를 누르세요...");
