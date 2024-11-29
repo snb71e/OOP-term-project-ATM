@@ -284,6 +284,13 @@ public:
         printSeparator();
     }
 
+    void showWithdrawOptions() const {
+        clearScreen();
+        cout << "======================================================================" << endl;
+        cout << "                              " << (isEng ? "Withdraw" : "출금") << endl;
+        cout << "======================================================================" << endl;
+    }
+
     void showTransferOptions() const {
         printMenu(isEng ? "Transfer Menu" : "송금 메뉴", { isEng ? "1. Cash Transfer" : "1. 현금 송금", isEng ? "2. Account Transfer" : "2. 계좌 송금", isEng ? "3. Cancel" : "3. 취소" });
     }
@@ -1244,13 +1251,14 @@ bool ATM::withdraw() {
         cin.get();
         return false;
     }
+    ui->showWithdrawOptions();
     string cardBank = account->getAccountNumber().substr(0, 4);
     int withdrawalCount = 0;
     while (withdrawalCount < 3) {
         long long int withdrawAmount = 0;
-        cout << (ui->getLanguage() ? "\n=== Withdraw Menu ===\nAccount Balance: " : "\n=== 출금 메뉴 ===\n계좌 잔액: ")
+        cout << (ui->getLanguage() ? "\nAccount Balance: " : "\n계좌 잔액: ")
             << account->getAvailableFund() << " won\n";
-        cout << (ui->getLanguage() ? "<The Amount to withdraw>" : "<출금할 금액>") << endl;
+        cout << (ui->getLanguage() ? "The Amount to withdraw: " : "출금할 금액: ") << endl;
         withdrawAmount = globalinput_int(atm_list, bank_list, ui);
         if (withdrawAmount == 0) {
             cout << (ui->getLanguage() ? "Returning to Menu..." : "메뉴로 돌아갑니다...") << endl;
