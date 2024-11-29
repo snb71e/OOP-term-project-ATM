@@ -1118,7 +1118,7 @@ bool ATM::fee_cash_calculator(int fee) {
         }
     }
     for (int i = 0; i < 4; i++) {
-        cash[i] += cashAdded[i];
+        cash[i] += cashAdded[3-i];
     }
     cout << (ui->getLanguage() ? "Fee paid successfully. ATM cash updated." : "수수료 납부 성공. ATM 현금이 업데이트되었습니다.") << endl;
     return true;
@@ -1248,7 +1248,7 @@ bool ATM::withdraw() {
         }
         if (withdrawAmount > account->getAvailableFund()) {
             cout << (ui->getLanguage() ? "Error: Insufficient account balance." : "오류: 계좌 잔액 부족.") << endl;
-            cout << (ui->getLanguage() ? "Returing to Menu..." : "메뉴로 돌아갑니다...") << endl;
+            cout << (ui->getLanguage() ? "Returning to Menu..." : "메뉴로 돌아갑니다...") << endl;
             cout << (ui->getLanguage() ? "Press Enter to continue..." : "계속하려면 Enter를 누르세요...") << endl;
             cin.ignore();
             cin.get();
@@ -1256,7 +1256,7 @@ bool ATM::withdraw() {
         }
         if (!hasSufficientCash(withdrawAmount)) {
             cout << (ui->getLanguage() ? "Error: ATM has insufficient cash." : "오류: ATM에 충분한 현금이 없습니다.") << endl;
-            cout << (ui->getLanguage() ? "Returing to Menu..." : "메뉴로 돌아갑니다...") << endl;
+            cout << (ui->getLanguage() ? "Returning to Menu..." : "메뉴로 돌아갑니다...") << endl;
             cout << (ui->getLanguage() ? "Press Enter to continue..." : "계속하려면 Enter를 누르세요...") << endl;
             cin.ignore();
             cin.get();
@@ -1266,7 +1266,7 @@ bool ATM::withdraw() {
         if (account->getAvailableFund() < withdrawAmount + fee) {
             cout << (ui->getLanguage() ? "Error: Insufficient balance to cover the fee." :
                 "오류: 수수료를 포함한 잔액이 부족합니다.") << endl;
-            cout << (ui->getLanguage() ? "Returing to Menu..." : "메뉴로 돌아갑니다...") << endl;
+            cout << (ui->getLanguage() ? "Returning to Menu..." : "메뉴로 돌아갑니다...") << endl;
             cout << (ui->getLanguage() ? "Press Enter to continue..." : "계속하려면 Enter를 누르세요...") << endl;
             cin.ignore();
             cin.get();
@@ -1374,7 +1374,10 @@ bool ATM::transfer() {
                 transferAmount = m1 * 1000 + m2 * 5000 + m3 * 10000 + m4 * 50000;
                 if (fee_cash_calculator(1000)) {
                     transaction_recording(transactionid(), account->getCardNumber(), "Cash Transfer", transferAmount, getatmbank(), getatmID(), account->getOwnerName(), account->getBankName(), account->getAccountNumber(), "(Cash transfer)");
-
+                    cash[0] += m1;
+                    cash[1] += m2;
+                    cash[2] += m3;
+                    cash[3] += m4;
                     ui->showTransferSuccessUI(account->getAvailableFund());
                     bank->increase_receiver_balance(account_num, transferAmount);
                     cout << (ui->getLanguage() ? "Press Enter to continue..." : "계속하려면 Enter를 누르세요...");
