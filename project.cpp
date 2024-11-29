@@ -493,12 +493,12 @@ private:
     int loginAttempts = 0;
     Bank* primaryBank;
     bool isSingleBankMode;
-    bool isBillingual;
+    bool isBilingual;
     Interface* atmInterface;
 
 public:
-    ATM(Bank* atmBank, bool issingle, bool isBillingual, int arr[4], const string& atmId, Interface* uiinterface)
-        : bank(atmBank), isSingleBankMode(issingle), isBillingual(isBillingual), atmID(atmId), ui(uiinterface) {
+    ATM(Bank* atmBank, bool issingle, bool isBilingual, int arr[4], const string& atmId, Interface* uiinterface)
+        : bank(atmBank), isSingleBankMode(issingle), isBilingual(isBilingual), atmID(atmId), ui(uiinterface) {
         for (int i = 0; i < 4; ++i) {
             cash[i] = arr[i];
         }
@@ -548,7 +548,11 @@ public:
     const vector<record*>& getTransactionRecords() const {
         return transaction_records;
     }
-    bool getIsBilingual() const { return isBillingual; }
+    bool getIsBilingual() const { return isBilingual; }  
+    string getLanMode() {
+        if (isBilingual) { return "Bilingual";}
+        else {return "Unilingual";}
+        }
     Interface* getAtmInterface() { return atmInterface; }
     void setAtmLanguage(bool isEng) {
         atmInterface->setLanguage(isEng);
@@ -808,7 +812,7 @@ void ATM::userMenu(ATM* selectedATM) {
     }
 
     // Bilingual 여부에 따라 언어 선택
-    if (isBillingual) {
+    if (isBilingual) {
         int languageSelection = 0;
         cout << "Select Language:\n1. English\n2. 한국어\n";
         while (true) {
@@ -2022,6 +2026,7 @@ int main() {
                             cout << (ui.getLanguage() ? "ATM ID: " : "ATM 고유 번호: ") << atm_list[i]->getatmID() << endl;
                             cout << (ui.getLanguage() ? "ATM Bank: " : "ATM 은행: ") << atm_list[i]->getatmbank() << endl;
                             cout << (ui.getLanguage() ? "ATM Mode: " : "ATM 모드: ");
+                            cout << (ui.getLanguage() ? "Language Mode: " : "언어 모드: ") << atm_list[i]->getLanMode() << endl;
                             if (atm_list[i]->issinglemode()) {
                                 cout << (ui.getLanguage() ? "Single" : "단일") << endl;
                             }
@@ -2068,6 +2073,7 @@ int main() {
                             cout << (ui.getLanguage() ? "ATM ID: " : "ATM 고유 번호: ") << atm_list[i]->getatmID() << endl;
                             cout << (ui.getLanguage() ? "ATM Bank: " : "ATM 은행: ") << atm_list[i]->getatmbank() << endl;
                             cout << (ui.getLanguage() ? "ATM Mode: " : "ATM 모드: ");
+                            cout << (ui.getLanguage() ? "Language Mode: " : "언어 모드: ") << atm_list[i]->getLanMode() << endl;
                             if (atm_list[i]->issinglemode()) {
                                 cout << (ui.getLanguage() ? "Single" : "단일") << endl;
                             }
@@ -2132,6 +2138,7 @@ int main() {
                     cout << (ui.getLanguage() ? "ATM Bank: " : "ATM 은행: ") << atm_list[i]->getatmbank() << endl;
                     cout << (ui.getLanguage() ? "ATM Mode: " : "ATM 모드: ")
                         << (atm_list[i]->issinglemode() ? (ui.getLanguage() ? "Single" : "단일") : (ui.getLanguage() ? "Multi" : "다중")) << endl;
+                    cout << (ui.getLanguage() ? "Language Mode: " : "언어 모드: ") << atm_list[i]->getLanMode() << endl;
                     cout << (ui.getLanguage() ? "Cash on ATM: " : "ATM 내 현금: ") << atm_list[i]->cashinatm() << endl;
                 }
                 string raw_input;
