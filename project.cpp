@@ -1404,6 +1404,13 @@ bool ATM::transfer() {
         else if (input == 2) {
             cout << (ui->getLanguage() ? "Enter account number to transfer or '0' to cancel." : "송금할 계좌 번호를 입력하거나 '0'을 눌러 취소하세요: ") << endl;
             string account_num = globalinput_string(atm_list, bank_list, ui);
+            if (account_num == account->getAccountNumber()) {
+                cout << (ui->getLanguage() ? "Error: Cannot transfer to your own account." : "오류: 자신의 계좌로 송금할 수 없습니다.") << endl;
+                cout << (ui->getLanguage() ? "Press Enter to continue..." : "계속하려면 Enter를 누르세요...");
+                cin.ignore();
+                cin.get();
+                return false;
+            }
             if (account_num == "0") {
                 ui->transactionCancelled();
                 cout << (ui->getLanguage() ? "Press Enter to continue..." : "계속하려면 Enter를 누르세요...");
