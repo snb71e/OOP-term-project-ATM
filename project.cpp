@@ -582,7 +582,7 @@ void display_atm(vector<ATM*> atm_list, Interface ui) {
     else {
         cout << "==============================ATM==============================\n";
         for (int i = 0; i < atm_list.size(); i++) {
-            cout << "ATM [SN:" << atm_list[i]->getatmID() << "]\nremaining cash : {KRW 50000 : " << atm_list[i]->getremainingcash(3) << ", KRW 10000 : " << atm_list[i]->getremainingcash(2) << ", KRW 5000 : " << atm_list[i]->getremainingcash(1)
+            cout << "ATM [SN:" << atm_list[i]->getatmID() << "]\nremaining cash : {KRW 50000 : " << atm_list[i]->getremainingcash(3) << "KRW 10000 : " << atm_list[i]->getremainingcash(2) << ", KRW 5000 : " << atm_list[i]->getremainingcash(1)
                 << ", KRW 1000 : " << atm_list[i]->getremainingcash(0) << "} " << endl;
             cout << "---------------------------------------------------------------\n";
         }
@@ -1390,6 +1390,9 @@ bool ATM::transfer() {
                     cin.get();
                     return false;
                 }
+                cout << (ui->getLanguage() ? "Press Enter to continue..." : "계속하려면 Enter를 누르세요...");
+                cin.ignore();
+                cin.get();
             }
             else {
                 cout << (ui->getLanguage() ? "Transaction failed: Non-existent account." : "거래 실패: 존재하지 않는 계좌.") << endl;
@@ -1538,7 +1541,9 @@ void ATM::transaction_recording(const string& parameter1, const string& paramete
 
 void display_history(bool exit, const vector<record*>& transaction_records, const Interface& ui) {
     if (transaction_records.empty()) {
-        ui.showErrorUI(ui.getLanguage() ? "No transaction history available." : "거래 내역이 없습니다.");
+        //////////////
+        ui.showErrorUI(ui.getLanguage() ? "There is no transaction history." : "거래 내역이 없습니다.");
+        ////////////////////
         return;
     }
     if (!exit) {
@@ -1614,7 +1619,9 @@ string globalinput_string(vector<ATM*> atm_list, vector<Bank*> bank_list, Interf
         else if (input == "/") {
             display_atm(atm_list, ui);
             display_account(bank_list, ui);
-            cout << (ui.getLanguage() ? "Please enter another input: " : "다른 입력을 다시 해주세요: ");
+            cout << (ui.getLanguage() ? "Press Enter to continue..." : "계속하려면 Enter를 누르세요...");
+            cin.ignore();
+            cin.get();
             continue;
         }
         return input;
@@ -1637,7 +1644,9 @@ double globalinput_double(vector<ATM*> atm_list, vector<Bank*> bank_list, Interf
         else if (to_string(input) == "/") {
             display_atm(atm_list, ui);
             display_account(bank_list, ui);
-            cout << (ui.getLanguage() ? "Please enter another input: " : "다른 입력을 다시 해주세요: ");
+            cout << (ui.getLanguage() ? "Press Enter to continue..." : "계속하려면 Enter를 누르세요...");
+            cin.ignore();
+            cin.get();
             continue;
         }
         return input;
@@ -1661,7 +1670,9 @@ int globalinput_int(vector<ATM*> atm_list, vector<Bank*> bank_list, Interface ui
         else if (raw_input == "/") {
             display_atm(atm_list, ui);
             display_account(bank_list, ui);
-            cout << (ui.getLanguage() ? "Please enter another input: " : "다른 입력을 다시 해주세요: ");
+            cout << (ui.getLanguage() ? "Press Enter to continue..." : "계속하려면 Enter를 누르세요...");
+            cin.ignore();
+            cin.get();
             continue;
         }
         else {
@@ -1689,7 +1700,9 @@ int getIntegerInput(const string& prompt, Interface* ui) {
         else if (raw_input == "/") {
             display_atm(atm_list, ui);
             display_account(bank_list, ui);
-            cout << (ui->getLanguage() ? "Please enter another input: " : "다른 입력을 다시 해주세요: ");
+            cout << (ui->getLanguage() ? "Press Enter to continue..." : "계속하려면 Enter를 누르세요...");
+            cin.ignore();
+            cin.get();
             continue;
         }
         else if (cin.fail()) {
@@ -2134,7 +2147,9 @@ int main() {
                     else if (raw_input == "/") {
                         display_atm(atm_list, ui);
                         display_account(bank_list, ui);
-                        cout << (ui.getLanguage() ? "Please enter another input: " : "다른 입력을 다시 해주세요: ");
+                        cout << (ui.getLanguage() ? "Press Enter to continue..." : "계속하려면 Enter를 누르세요...");
+                        cin.ignore();
+                        cin.get();
                         continue;
                     }
                     else if (cin.fail()) {
@@ -2252,8 +2267,12 @@ int main() {
                         password = globalinput_string(atm_list, bank_list, ui);
                         string correctPassword = targetAccount->getPassword();
                         if (correctPassword == password) {
-                            ui.clearScreen();
                             cout << (ui.getLanguage() ? "Card authentication successful." : "카드 인증 성공.") << endl;
+                            ///////////
+                            cout << (ui.getLanguage() ? "Press Enter to continue..." : "계속하려면 엔터 키를 누르세요...");
+                            cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+                            cin.get();
+                            ///////////////////
                             break;
                         }
                         retryCount++;
@@ -2269,7 +2288,12 @@ int main() {
                         }
                     }
                     if (retryCount >= maxRetries) {
+                        /////
                         cout << (ui.getLanguage() ? "Error: Maximum retries exceeded." : "오류: 최대 시도 횟수를 초과했습니다.") << endl;
+                        cout << (ui.getLanguage() ? "Press Enter to continue..." : "계속하려면 엔터 키를 누르세요...");
+                        cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+                        cin.get();
+                        //////
                         for (size_t i = 0; i < atm_list.size(); ++i) {
                             cout << (ui.getLanguage() ? "\nATM ID: " : "\nATM 고유 번호: ") << atm_list[i]->getatmID() << endl;
                             atm_list[i]->transactionHistory(true);
@@ -2317,7 +2341,9 @@ int main() {
                         else if (userOption == "/") {
                             display_atm(atm_list, ui);
                             display_account(bank_list, ui);
-                            cout << (ui.getLanguage() ? "Please enter another input: " : "다른 입력을 다시 해주세요: ");
+                            cout << (ui.getLanguage() ? "Press Enter to continue..." : "계속하려면 Enter를 누르세요...");
+                            cin.ignore();
+                            cin.get();
                             continue;
                         }
                         else if (cin.fail()) {
