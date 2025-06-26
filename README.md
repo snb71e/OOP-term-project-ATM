@@ -32,7 +32,7 @@ Gyuwon, Joohyeok, Jaeheon, Seonae
   - Keypad input, text display, card insert simulation, etc.
 - **Snapshot Display**
   - Slash (`/`) input prints current account balances and ATM remaining cash
-- ⚠**Robust Exception Handling**
+- **Robust Exception Handling**
   - Invalid inputs, insufficient balance, exceeded limits, etc.
 
 ## 💡 Object-Oriented Design
