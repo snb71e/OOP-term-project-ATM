@@ -4,16 +4,10 @@
 
 This is the official implementation for the **CSE201 Term Project** (Fall 2024), focusing on designing and building a **console-based ATM (Automated Teller Machine)** system using **Object-Oriented Programming (OOP)** principles in C++. The system simulates interactions among users, ATMs, and banks, allowing for typical banking operations such as deposit, withdrawal, transfer, and admin management.
 
-## 👥 Team Information
+## 👥 Team Members
 
-| Name           |
-|----------------|
-| Gyuwon         |
-| Joohyeok       |
-| Jaeheon        |
-| Seonae         |
+Gyuwon, Joohyeok, Jaeheon, Seonae
 
-> ⚠️ Please replace the names and student IDs with your actual team information.
 
 ## Features
 
