@@ -6,7 +6,7 @@ This is the official implementation for the **CSE201 Term Project** (Fall 2024),
 
 ## 👥 Team Members
 
-Gyuwon, Joohyeok, Jaeheon, Seonae
+Kyuwon, Joohyeok, Jaeheon, Seonae
 
 
 ## Features
